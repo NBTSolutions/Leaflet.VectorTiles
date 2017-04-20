@@ -8,15 +8,20 @@
  * this is a hack
  */
 L.Canvas.Tile = L.Canvas.extend({
-  initialize: function(tileSize, map) {
+  initialize: function(tileSize) {
     // TODO: L.setOptions
     L.Canvas.prototype.initialize.call(this);
+
+    this._tileSize = tileSize;
 
     this._features = [];
   },
 
   onAdd: function(map) {
     L.Canvas.prototype.onAdd.call(this, map);
+
+    this._container.setAttribute('width', this._tileSize.x);
+    this._container.setAttribute('height', this._tileSize.y);
 
     // render features
     for (var i = 0; i < this._features.length; i++) {
@@ -74,7 +79,7 @@ L.VectorTiles = L.GridLayer.extend({
 
   createTile: function(coords, done) {
     var tileSize = this.getTileSize();
-    var tile = new L.Canvas.Tile(tileSize, this._map);
+    var tile = new L.Canvas.Tile(tileSize);
 
     // this is necessarily to initialize the canvas DOM element
     tile.addTo(this._map);
@@ -102,7 +107,7 @@ L.VectorTiles = L.GridLayer.extend({
 
 (function main() {
   var map = L.map('map').setView({lat: 43.6260475, lng: -70.295306}, 14);
-  L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  //L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
   var url = 'http://ec2-54-209-137-178.compute-1.amazonaws.com/vector-tiles/tiles/{z}/{x}/{y}.pbf';
   var vtLayer = new L.VectorTiles(url, map);
   vtLayer.addTo(map);
