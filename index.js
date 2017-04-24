@@ -3,89 +3,130 @@
  */
 
 /**
- * Tiles made of canvases layers
- *
- * this is a hack
+ * Convert a GeoJSON feature into a Leaflet feature
  */
-L.Canvas.Tile = L.Canvas.extend({
-  initialize: function(tileSize) {
-    // TODO: L.setOptions
-    L.Canvas.prototype.initialize.call(this);
+function geojFeatureToLayer(feature) {
+  switch (feature.geometry.type) {
+    case 'Point':
+      var coords = feature.geometry.coordinates;
+      var circle = L.circle([coords[1], coords[0]], {
+        radius: 40
+      });
+      circle.on('click', function(e) {
+        console.log(e);
+      });
+      return circle;
 
-    this._tileSize = tileSize;
-
-    this._features = [];
-  },
-
-  onAdd: function(map) {
-    L.Canvas.prototype.onAdd.call(this, map);
-
-    this._container.setAttribute('width', this._tileSize.x);
-    this._container.setAttribute('height', this._tileSize.y);
-
-    // render features
-    for (var i = 0; i < this._features.length; i++) {
-      this._renderFeature(this._features[i]);
-    }
-  },
-
-  onRemove: function() {
-    console.log(this);
-  },
-
-  addFeature: function(feature) {
-    this._features.push(feature);
-    this._renderFeature(feature);
-  },
-
-  _renderFeature: function(feature) {
-    // if already initialized
-    if (this._container) {
-      if (feature) {
-        switch (feature.geometry.type) {
-          case 'Point':
-            var coords = feature.geometry.coordinates;
-            var circle = L.circle([coords[1], coords[0]], {
-              renderer: this,
-              radius: 200
-            });
-            circle.addTo(this._map);
-            break;
-
-          case 'LineString':
-            var coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-            var polyline = L.polyline(coords, {
-              renderer: this
-            });
-            polyline.addTo(this._map);
-            break;
-        }
-      }
-    }
-
+    case 'LineString':
+      var coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+      var polyline = L.polyline(coords, {});
+      return polyline;
   }
-});
+}
 
 /**
  * The GridLayer made of canvas tiles
  */
 L.VectorTiles = L.GridLayer.extend({
-  initialize: function(url, map) {
+  initialize(url, options) {
     this._url = url;
 
+
     // TODO: figure out how to do without this
-    this._map = map;
+    this._map = options.map;
+
+    this._featureGroup = L.featureGroup()
+      .addTo(this._map);
+
+    this.getFeatureId = options.getFeatureId;
+
+    // pointers to individual layers
+    this._features = {};
+
+    // listen for tileunload event and clean up old features
+    this.on('tileunload', function(e) {
+      this.destroyTile(e.coords);
+    });
+
+    this._index = {};
   },
 
+  _insertIntoIndex(coords, feature) {
+    var tileKey = this._tileCoordsToKey(coords);
+
+    // create the index for this tile if it hasn't been created yet
+    if (!(tileKey in this._index)) {
+      this._index[tileKey] = rbush();
+    }
+
+    var geom = feature.geometry;
+    var c = feature.geometry.coordinates;
+
+    var minX, minY, maxX, maxY;
+
+    if (geom.type === 'Point') {
+      minX = maxX = c[0];
+      minY = maxY = c[1];
+    } else {
+      var bbox = turf.bbox(geom);
+      minX = bbox[0];
+      minY = bbox[1];
+      maxX = bbox[2];
+      maxY = bbox[3];
+    }
+
+    this._index[tileKey].insert({
+      minX: minX,
+      minY: minY,
+      maxX: maxX,
+      maxY: maxY,
+      id: this.getFeatureId(feature),
+    });
+  },
+
+  search(min, max) {
+    var results = [];
+
+    for (var tileKey in this._index) {
+      var tree = this._index[tileKey];
+      var minX = min.lng;
+      var minY = min.lat;
+      var maxX = max.lng;
+      var maxY = max.lat;
+      results = results.concat(tree.search({ minX, minY, maxX, maxY }).map(r => r.id));
+    }
+
+    return results;
+  },
+
+  destroyTile(coords) {
+    var tileKey = this._tileCoordsToKey(coords);
+
+    // remove all features from the map
+    var features = this._features[tileKey];
+    for (var i = 0; i < features.length; i++) {
+      var feature = features[i];
+      this._featureGroup.removeLayer(feature.layer);
+    }
+
+    // delete this tile's spatial index
+    delete this._index[tileKey];
+
+    // finally delete the feature and is associated Leaflet layer
+    delete this._features[tileKey];
+  },
+
+  /**
+   * This method:
+   *   - fetches the data for the tile
+   *   - adds all of its features to the map
+   *   - adds its features to the internal data structure
+   *   - inserts its features into the a spatial tree
+   */
   createTile: function(coords, done) {
-    var tileSize = this.getTileSize();
-    var tile = new L.Canvas.Tile(tileSize);
-
-    // this is necessarily to initialize the canvas DOM element
-    tile.addTo(this._map);
-
-    // Debugger: make tile boundaries visible
-    tile._container.style.border = '1px solid red';
+    var tile = L.DomUtil.create('div', 'leaflet-tile');
+    var tileKey = this._tileCoordsToKey(coords);
+    this._features[tileKey] = [];
 
     // fetch vector tile data for this tile
     var url = L.Util.template(this._url, coords);
@@ -94,22 +135,151 @@ L.VectorTiles = L.GridLayer.extend({
       .then(layers => {
         for (var i = 0; i < layers.length; i++) {
           for (var j = 0; j < layers[i].features.features.length; j++) {
-            var geojFeat = layers[i].features.features[j];
-            tile.addFeature(geojFeat);
+            var feature = layers[i].features.features[j];
+            var layer = geojFeatureToLayer(feature);
+            this._features[tileKey].push({
+              feature: feature,
+              layer: layer
+            });
+            this._featureGroup.addLayer(layer);
+            this._insertIntoIndex(coords, feature);
           }
         }
-        done(null, tile._container);
+        done(null, tile);
       });
 
-    return tile._container;
+    return tile;
+  },
+
+  /**
+   * Removes features from the map by property
+   * Wrapper function of _toggleByProperty
+   *   equivalent to this._toggleByProperty(property, value, false);
+   */
+  hideByProperty(property, value) {
+    this._toggleByProperty(property, value, false);
+  },
+
+  /**
+   * Add features to the map by property
+   * Wrapper function of _toggleByProperty
+   *   equivalent to this._toggleByProperty(property, value, true);
+   */
+  showByProperty(property, value) {
+    this._toggleByProperty(property, value, true);
+  },
+
+  /**
+   * Iterates over all features and add them to or removes them from
+   * the map based on a property value
+   */
+  _toggleByProperty(property, value, on) {
+    for (var tileKey in this._features) {
+      var features = this._features[tileKey];
+      for (var i = 0; i < features.length; i++) {
+        var feature = features[i];
+        if (property in feature.feature.properties
+            && feature.feature.properties[property] === value) {
+          if (on)
+            this._featureGroup.addLayer(feature.layer);
+          else
+            this._featureGroup.removeLayer(feature.layer);
+        }
+      }
+    }
+  },
+
+  restyleByProperty(property, value, style) {
+    for (var tileKey in this._features) {
+      var features = this._features[tileKey];
+      for (var i = 0; i < features.length; i++) {
+        var feature = features[i];
+        if (property in features.features.properties
+            && feature.feature.properties[property] === value) {
+          feature.layer.setStyle(style);
+        }
+      }
+    }
+  },
+
+  /**
+   *
+   */
+  getFeatureGroup() {
+    return this._featureGroup;
   }
 });
 
+/**
+ * Feature demos
+ */
 (function main() {
-  var map = L.map('map').setView({lat: 43.6260475, lng: -70.295306}, 14);
-  //L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  var map = L.map('map', {
+    preferCanvas: true,
+    center: {
+      lat: 43.6260475,
+      lng: -70.295306
+    },
+    zoom: 14
+  });
+
+  L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  // URL for fetching vector tiles
   var url = 'http://ec2-54-209-137-178.compute-1.amazonaws.com/vector-tiles/tiles/{z}/{x}/{y}.pbf';
-  var vtLayer = new L.VectorTiles(url, map);
-  vtLayer.addTo(map);
+
+  var vtLayer = new L.VectorTiles(url, {
+    getFeatureId: function(feature) {
+      return `${feature.properties.view}:${feature.properties.id}`;
+    },
+    map: map
+  }).addTo(map);
+
+  /*
+  var drawControl = new L.Control.Draw({
+    edit: {
+      featureGroup: vtLayer.getFeatureGroup()
+    }
+  });
+  */
+
+  var searchResultsDiv = document.getElementById('search-results');
+
+  map.on('mousemove', e => {
+    var buf = .0005;
+    var lat = e.latlng.lat;
+    var lng = e.latlng.lng;
+    var results = vtLayer.search(
+      L.latLng({ lat: lat - buf, lng: lng - buf }),
+      L.latLng({ lat: lat + buf, lng: lng + buf })
+    );
+    searchResultsDiv.innerHTML = results.map(r => `<div>${r}</div>`).join('');
+  });
+
+  // add layer button
+  fetch(`http://ec2-54-209-137-178.compute-1.amazonaws.com/vector-tiles/layers`)
+    .then(res => res.json())
+    .then(layers => {
+      var buttonsContainer = document.getElementById('panel');
+      for (var i = 0; i < layers.length; i++) {
+        var layer = layers[i];
+        button = document.createElement('button');
+        button.innerHTML = layer;
+        button.id = layer
+        button.state = true;
+        button.style.backgroundColor = 'green';
+        button.style.color = 'white';
+        button.addEventListener('click', function(e) {
+          var button = e.target;
+          button.state = !button.state;
+          button.style.backgroundColor = button.state ? 'green' : 'red';
+          if (button.state)
+            vtLayer.showByProperty('view', e.target.id);
+          else
+            vtLayer.hideByProperty('view', e.target.id);
+        });
+        buttonsContainer.appendChild(button);
+      }
+    });
 })();
 

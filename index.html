@@ -5,12 +5,18 @@
   <title></title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
   <script src="lib/Leaflet/dist/leaflet-src.js"></script>
+  <script src="https://unpkg.com/rbush@2.0.1/rbush.js"></script>
+  <script src="https://npmcdn.com/@turf/turf@3.13.2/turf.js"></script>
+  <!--script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.9/leaflet.draw-src.js"></script-->
+  <!--link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.9/leaflet.draw.css"-->
   <style>
     #map { height: 700px; }
   </style>
 </head>
 <body>
+  <div id="panel"></div>
   <div id="map"></div>
+  <div id="search-results"></div>
   <script src="index.js"></script>
 </body>
 </html>
