@@ -21,6 +21,16 @@ function geojFeatureToLayer(feature) {
       var coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
       var polyline = L.polyline(coords, {});
       return polyline;
+
+    case 'Polygon':
+    case 'MultiPolygon':
+      var coords = feature.geometry.coordinates.map(ring => ring.map(c => [c[1], c[0]]));
+      var polygon = L.polygon(coords, {});
+      return polygon;
+
+    default:
+      console.log('Unsupported feature type: ' + feature.geometry.type);
+      return null;
   }
 }
 
@@ -30,7 +40,6 @@ function geojFeatureToLayer(feature) {
 L.VectorTiles = L.GridLayer.extend({
   initialize(url, options) {
     this._url = url;
-
 
     // TODO: figure out how to do without this
     this._map = options.map;
@@ -45,7 +54,7 @@ L.VectorTiles = L.GridLayer.extend({
     // pointers to individual layers
     this._features = {};
 
-    // tracks where or not a tile is loaded
+    // tracks where or not a tile is loaded (true if `tileload` has fired)
     this._loaded = {};
 
     // mark a tile as loaded
@@ -116,9 +125,9 @@ L.VectorTiles = L.GridLayer.extend({
     var features = this._features[tileKey];
     var bboxes = [];
     for (var i = 0; i < features.length; i++) {
-      var feature = features[i].feature;
-      var geom = feature.geometry;
-      var c = feature.geometry.coordinates;
+      var geojson = features[i].geojson;
+      var geom = geojson.geometry;
+      var c = geojson.geometry.coordinates;
 
       var minX, minY, maxX, maxY;
 
@@ -138,14 +147,14 @@ L.VectorTiles = L.GridLayer.extend({
         minY: minY,
         maxX: maxX,
         maxY: maxY,
-        id: this.getFeatureId(feature),
+        id: this.getFeatureId(geojson),
       });
     }
 
     this._index[tileKey].load(bboxes);
   },
 
-  _insertIntoIndex(coords, feature) {
+  _insertIntoIndex(coords, geojson) {
     var tileKey = this._tileCoordsToKey(coords);
 
     // create the index for this tile if it hasn't been created yet
@@ -153,8 +162,8 @@ L.VectorTiles = L.GridLayer.extend({
       this._index[tileKey] = rbush();
     }
 
-    var geom = feature.geometry;
-    var c = feature.geometry.coordinates;
+    var geom = geojson.geometry;
+    var c = geojson.geometry.coordinates;
 
     var minX, minY, maxX, maxY;
 
@@ -174,7 +183,7 @@ L.VectorTiles = L.GridLayer.extend({
       minY: minY,
       maxX: maxX,
       maxY: maxY,
-      id: this.getFeatureId(feature),
+      id: this.getFeatureId(geojson),
     });
   },
 
@@ -227,19 +236,19 @@ L.VectorTiles = L.GridLayer.extend({
       .then(layers => {
         for (var i = 0; i < layers.length; i++) {
           for (var j = 0; j < layers[i].features.features.length; j++) {
-            var feature = layers[i].features.features[j];
-            var layer = geojFeatureToLayer(feature);
+            var geojson = layers[i].features.features[j];
+            var layer = geojFeatureToLayer(geojson);
             if (!layer) {
-              // TODO: get rid of this when we implement all geometry types
+              // unsupported geometry type
               continue;
             }
             this._features[tileKey].push({
-              feature: feature,
+              geojson: geojson,
               layer: layer
             });
 
             // applying stylistic and visibility modification to new features
-            var properties = feature.properties;
+            var properties = geojson.properties;
             var onMap = true;
             for (var property in this._propertyStates) {
               if (property in properties) {
@@ -318,8 +327,8 @@ L.VectorTiles = L.GridLayer.extend({
       var featureGroup = this._tileFeatureGroups[tileKey];
       for (var i = 0; i < features.length; i++) {
         var feature = features[i];
-        if (property in feature.feature.properties
-            && feature.feature.properties[property] === value) {
+        if (property in feature.geojson.properties
+            && feature.geojson.properties[property] === value) {
           if (on)
             featureGroup.addLayer(feature.layer);
           else
@@ -334,8 +343,8 @@ L.VectorTiles = L.GridLayer.extend({
       var features = this._features[tileKey];
       for (var i = 0; i < features.length; i++) {
         var feature = features[i];
-        if (property in features.features.properties
-            && feature.feature.properties[property] === value) {
+        if (property in feature.geojson.properties
+            && feature.geojson.properties[property] === value) {
           feature.layer.setStyle(style);
         }
       }
