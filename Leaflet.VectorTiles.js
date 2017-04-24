@@ -2,37 +2,6 @@
  * GeoJSON tiles
  */
 
-/**
- * Convert a GeoJSON feature into a Leaflet feature
- */
-function geojFeatureToLayer(feature) {
-  switch (feature.geometry.type) {
-    case 'Point':
-      var coords = feature.geometry.coordinates;
-      var circle = L.circle([coords[1], coords[0]], {
-        radius: 40
-      });
-      circle.on('click', function(e) {
-        console.log(e);
-      });
-      return circle;
-
-    case 'LineString':
-      var coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-      var polyline = L.polyline(coords, {});
-      return polyline;
-
-    case 'Polygon':
-    case 'MultiPolygon':
-      var coords = feature.geometry.coordinates.map(ring => ring.map(c => [c[1], c[0]]));
-      var polygon = L.polygon(coords, {});
-      return polygon;
-
-    default:
-      console.log('Unsupported feature type: ' + feature.geometry.type);
-      return null;
-  }
-}
 
 /**
  * The GridLayer made of canvas tiles
@@ -52,7 +21,24 @@ L.VectorTiles = L.GridLayer.extend({
     this.getFeatureId = options.getFeatureId;
 
     // pointers to individual layers
+    // this._features = {
+    //   <tileKey>: {
+    //     <featureId>: {
+    //       geojson: <GeoJSON feature>,
+    //       layer: <Leaflet layer>
+    //     }
+    //   }
+    // }
     this._features = {};
+
+    // This table maps featureIds to styles
+    // a featureId can be found here if its style has been modified
+    // used for keeping the same feature styled the same as it appears
+    // across multiple tiles (same feature across different zoom levels)
+    // this._styles = {
+    //   <featureId>: style = { L.Path options }
+    // }
+    this._styles = {}
 
     // tracks where or not a tile is loaded (true if `tileload` has fired)
     this._loaded = {};
@@ -74,8 +60,7 @@ L.VectorTiles = L.GridLayer.extend({
       // no longer visible (which happens when tileunload fires before tileload)
       this._featureGroup.removeLayer(this._tileFeatureGroups[tileKey]);
 
-      // if the tile hasn't loaded yet
-      // wait until it loads to destroy it
+      // if the tile hasn't loaded yet wait until it loads to destroy it
       if (!this._loaded[tileKey]) {
         this.on('tileload', function(e) {
           this.destroyTile(e.coords);
@@ -124,8 +109,8 @@ L.VectorTiles = L.GridLayer.extend({
 
     var features = this._features[tileKey];
     var bboxes = [];
-    for (var i = 0; i < features.length; i++) {
-      var geojson = features[i].geojson;
+    for (var id in features) {
+      var geojson = features[id].geojson;
       var geom = geojson.geometry;
       var c = geojson.geometry.coordinates;
 
@@ -151,6 +136,7 @@ L.VectorTiles = L.GridLayer.extend({
       });
     }
 
+    // bulk load all the features for this tile
     this._index[tileKey].load(bboxes);
   },
 
@@ -226,7 +212,7 @@ L.VectorTiles = L.GridLayer.extend({
   createTile: function(coords, done) {
     var tile = L.DomUtil.create('div', 'leaflet-tile');
     var tileKey = this._tileCoordsToKey(coords);
-    this._features[tileKey] = [];
+    this._features[tileKey] = {};
     this._tileFeatureGroups[tileKey] = featureGroup = L.featureGroup();
 
     // fetch vector tile data for this tile
@@ -237,17 +223,18 @@ L.VectorTiles = L.GridLayer.extend({
         for (var i = 0; i < layers.length; i++) {
           for (var j = 0; j < layers[i].features.features.length; j++) {
             var geojson = layers[i].features.features[j];
-            var layer = geojFeatureToLayer(geojson);
+            var id = this.getFeatureId(geojson);
+            var layer = this.geojsonToLayer(geojson, id);
             if (!layer) {
               // unsupported geometry type
               continue;
             }
-            this._features[tileKey].push({
+            this._features[tileKey][id] = {
               geojson: geojson,
               layer: layer
-            });
+            };
 
-            // applying stylistic and visibility modification to new features
+            // applying stylistic and visibility modification by property to new features
             var properties = geojson.properties;
             var onMap = true;
             for (var property in this._propertyStates) {
@@ -269,6 +256,12 @@ L.VectorTiles = L.GridLayer.extend({
                   }
                 }
               }
+            }
+
+
+            // apply any styling overrides previously applied to this feature
+            if (id in this._styles) {
+              layer.setStyle(this._styles[id]);
             }
 
             if (onMap)
@@ -325,8 +318,8 @@ L.VectorTiles = L.GridLayer.extend({
     for (var tileKey in this._features) {
       var features = this._features[tileKey];
       var featureGroup = this._tileFeatureGroups[tileKey];
-      for (var i = 0; i < features.length; i++) {
-        var feature = features[i];
+      for (var id in features) {
+        var feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
           if (on)
@@ -338,11 +331,14 @@ L.VectorTiles = L.GridLayer.extend({
     }
   },
 
+  /**
+   * Change the style of features based on property values
+   */
   restyleByProperty(property, value, style) {
     for (var tileKey in this._features) {
       var features = this._features[tileKey];
-      for (var i = 0; i < features.length; i++) {
-        var feature = features[i];
+      for (var id in features) {
+        var feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
           feature.layer.setStyle(style);
@@ -352,10 +348,80 @@ L.VectorTiles = L.GridLayer.extend({
   },
 
   /**
-   *
+   * Change the style of a feature by its id
+   */
+  setFeatureStyle(id, style) {
+    this._styles[id] = style;
+    for (var tileKey in this._features) {
+      var features = this._features[tileKey];
+      if (id in features) {
+        var layer = features[id].layer;
+        layer.setStyle(style);
+      }
+    }
+  },
+
+  /**
+   * Revert a feature to its origin style
+   * TODO
+   */
+  resetFeatureStyle(id) {
+    delete this._styles[id];
+    for (var tileKey in this._features) {
+      var features = this._features[tileKey];
+      if (id in features) {
+        var layer = features[id].layer;
+        // layer.resetStyle();
+      }
+    }
+  },
+
+  /**
+   * Returns the feature group that holds all features in the GridLayer
+   * intended for use with Leaflet.Draw
    */
   getFeatureGroup() {
     return this._featureGroup;
+  },
+
+
+  /**
+   * Convert a GeoJSON feature into a Leaflet feature
+   *
+   * Point -> L.Circle
+   * LineString -> L.Polyline
+   * Polygon/Multipolygon -> L.Polygon
+   */
+  geojsonToLayer(feature, id) {
+    var layer;
+    switch (feature.geometry.type) {
+      case 'Point':
+        var coords = feature.geometry.coordinates;
+        layer = L.circle([coords[1], coords[0]], {
+          radius: 40
+        });
+        break;
+
+      case 'LineString':
+        var coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+        layer = L.polyline(coords, {});
+        break;
+
+      case 'Polygon':
+      case 'MultiPolygon':
+        var coords = feature.geometry.coordinates.map(ring => ring.map(c => [c[1], c[0]]));
+        layer = L.polygon(coords, {});
+        break;
+
+      default:
+        console.log('Unsupported feature type: ' + feature.geometry.type);
+        return null;
+    }
+
+    layer.id = id;
+
+    return layer;
   }
+
 });
 

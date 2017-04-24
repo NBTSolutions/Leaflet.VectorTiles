@@ -41,7 +41,10 @@
       L.latLng({ lat: lat - buf, lng: lng - buf }),
       L.latLng({ lat: lat + buf, lng: lng + buf })
     );
-    searchResultsDiv.innerHTML = results.map(r => `<div>${r}</div>`).join('');
+    for (var i = 0; i < results.length; i++) {
+      var id = results[i];
+      vtLayer.setFeatureStyle(id, { color: 'red' });
+    }
   });
 
   // add layer button
