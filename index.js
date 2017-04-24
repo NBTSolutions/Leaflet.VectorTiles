@@ -35,8 +35,10 @@ L.VectorTiles = L.GridLayer.extend({
     // TODO: figure out how to do without this
     this._map = options.map;
 
+    // the FeatureGroup that holds per tile FeatureGroups
     this._featureGroup = L.featureGroup()
       .addTo(this._map);
+    this._tileFeatureGroups = {};
 
     this.getFeatureId = options.getFeatureId;
 
@@ -65,7 +67,47 @@ L.VectorTiles = L.GridLayer.extend({
     // style modifications
     this._propertyStates = {};
 
+    // this._index holds rbush trees for each tile
     this._index = {};
+  },
+
+  _bulkInsertTileIntoIndex(coords) {
+    var tileKey = this._tileCoordsToKey(coords);
+
+    if (!(tileKey in this._index)) {
+      this._index[tileKey] = rbush();
+    }
+
+    var features = this._features[tileKey];
+    var bboxes = [];
+    for (var i = 0; i < features.length; i++) {
+      var feature = features[i].feature;
+      var geom = feature.geometry;
+      var c = feature.geometry.coordinates;
+
+      var minX, minY, maxX, maxY;
+
+      if (geom.type === 'Point') {
+        minX = maxX = c[0];
+        minY = maxY = c[1];
+      } else {
+        var bbox = turf.bbox(geom);
+        minX = bbox[0];
+        minY = bbox[1];
+        maxX = bbox[2];
+        maxY = bbox[3];
+      }
+
+      bboxes.push({
+        minX: minX,
+        minY: minY,
+        maxX: maxX,
+        maxY: maxY,
+        id: this.getFeatureId(feature),
+      });
+    }
+
+    this._index[tileKey].load(bboxes);
   },
 
   _insertIntoIndex(coords, feature) {
@@ -119,12 +161,8 @@ L.VectorTiles = L.GridLayer.extend({
   destroyTile(coords) {
     var tileKey = this._tileCoordsToKey(coords);
 
-    // remove all features from the map
-    var features = this._features[tileKey];
-    for (var i = 0; i < features.length; i++) {
-      var feature = features[i];
-      this._featureGroup.removeLayer(feature.layer);
-    }
+    // remove this tile's FeatureGroup from the map
+    this._featureGroup.removeLayer(this._tileFeatureGroups[tileKey]);
 
     // delete this tile's spatial index
     delete this._index[tileKey];
@@ -144,6 +182,7 @@ L.VectorTiles = L.GridLayer.extend({
     var tile = L.DomUtil.create('div', 'leaflet-tile');
     var tileKey = this._tileCoordsToKey(coords);
     this._features[tileKey] = [];
+    this._tileFeatureGroups[tileKey] = featureGroup = L.featureGroup();
 
     // fetch vector tile data for this tile
     var url = L.Util.template(this._url, coords);
@@ -154,6 +193,10 @@ L.VectorTiles = L.GridLayer.extend({
           for (var j = 0; j < layers[i].features.features.length; j++) {
             var feature = layers[i].features.features[j];
             var layer = geojFeatureToLayer(feature);
+            if (!layer) {
+              console.log('->');
+              continue;
+            }
             this._features[tileKey].push({
               feature: feature,
               layer: layer
@@ -184,11 +227,18 @@ L.VectorTiles = L.GridLayer.extend({
             }
 
             if (onMap)
-              this._featureGroup.addLayer(layer);
-
-            this._insertIntoIndex(coords, feature);
+              //this._featureGroup.addLayer(layer);
+              featureGroup.addLayer(layer);
           }
         }
+
+        // load new features into spatial index
+        this._bulkInsertTileIntoIndex(coords);
+
+        // add the featureGroup of this tile to the map
+        //featureGroup.addTo(this._map);
+        featureGroup.addTo(this._featureGroup);
+
         done(null, tile);
       });
 
@@ -228,16 +278,18 @@ L.VectorTiles = L.GridLayer.extend({
 
     this._propertyStates[property][value].onMap = on;
 
+
     for (var tileKey in this._features) {
       var features = this._features[tileKey];
+      var featureGroup = this._tileFeatureGroups[tileKey];
       for (var i = 0; i < features.length; i++) {
         var feature = features[i];
         if (property in feature.feature.properties
             && feature.feature.properties[property] === value) {
           if (on)
-            this._featureGroup.addLayer(feature.layer);
+            featureGroup.addLayer(feature.layer);
           else
-            this._featureGroup.removeLayer(feature.layer);
+            featureGroup.removeLayer(feature.layer);
         }
       }
     }
@@ -289,13 +341,12 @@ L.VectorTiles = L.GridLayer.extend({
     map: map
   }).addTo(map);
 
-  /*
   var drawControl = new L.Control.Draw({
     edit: {
       featureGroup: vtLayer.getFeatureGroup()
     }
   });
-  */
+  map.addControl(drawControl);
 
   var searchResultsDiv = document.getElementById('search-results');
 
