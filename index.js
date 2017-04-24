@@ -48,6 +48,23 @@ L.VectorTiles = L.GridLayer.extend({
       this.destroyTile(e.coords);
     });
 
+    // used for tracking properties that have been modified
+    // looks like this:
+    // this._propertyStates = {
+    //   propertyName: {
+    //     value1: {
+    //       style: { ... }
+    //     },
+    //     value2: {
+    //       onMap: false
+    //     }
+    //   }
+    // }
+    //
+    // onMap status (like calling `hideByProperty`) supercede
+    // style modifications
+    this._propertyStates = {};
+
     this._index = {};
   },
 
@@ -141,7 +158,34 @@ L.VectorTiles = L.GridLayer.extend({
               feature: feature,
               layer: layer
             });
-            this._featureGroup.addLayer(layer);
+
+            // applying stylistic and visibility modification to new features
+            var properties = feature.properties;
+            var onMap = true;
+            for (var property in this._propertyStates) {
+              if (property in properties) {
+                for (var value in this._propertyStates[property]) {
+                  if (properties[property] === value) {
+                    // check if this feature should be added to the map
+                    if ('onMap' in this._propertyStates[property][value]
+                      && !this._propertyStates[property][value].onMap) {
+                      onMap = false;
+                    }
+
+                    // check if this feature should be restyled
+                    // perhaps similar feature are currently highlighted
+                    if ('style' in this._propertyStates[property][value]) {
+                      var style = this._propertyStates[property][value].style;
+                      layer.setStyle(style);
+                    }
+                  }
+                }
+              }
+            }
+
+            if (onMap)
+              this._featureGroup.addLayer(layer);
+
             this._insertIntoIndex(coords, feature);
           }
         }
@@ -174,6 +218,16 @@ L.VectorTiles = L.GridLayer.extend({
    * the map based on a property value
    */
   _toggleByProperty(property, value, on) {
+    if (!(property in this._propertyStates)) {
+      this._propertyStates[property] = {};
+    }
+
+    if (!(value in this._propertyStates[property])) {
+      this._propertyStates[property][value] = {};
+    }
+
+    this._propertyStates[property][value].onMap = on;
+
     for (var tileKey in this._features) {
       var features = this._features[tileKey];
       for (var i = 0; i < features.length; i++) {
