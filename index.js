@@ -4,12 +4,14 @@
 
 (function main() {
   var map = L.map('map', {
-    preferCanvas: true,
+    //preferCanvas: true,
     center: {
       lat: 43.6260475,
       lng: -70.295306
     },
-    zoom: 14
+    zoom: 13,
+    //renderer: new L.FontCanvas()
+    renderer: new L.Canvas()
   });
 
   L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -21,7 +23,9 @@
     getFeatureId: function(feature) {
       return `${feature.properties.view}:${feature.properties.id}`;
     },
-    map: map
+    map: map,
+    debug: true,
+    tileSize: 128
   }).addTo(map);
 
   var drawControl = new L.Control.Draw({
