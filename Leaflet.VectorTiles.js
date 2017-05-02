@@ -7,14 +7,14 @@
 
 L.FontCanvas = L.Canvas.extend({
   _updateCircle: function (layer) {
-		if (!this._drawing || layer._empty()) { return; }
+    if (!this._drawing || layer._empty()) { return; }
 
-		var p = layer._point,
-		    ctx = this._ctx,
-		    r = layer._radius,
-		    s = (layer._radiusY || r) / r;
+    var p = layer._point,
+        ctx = this._ctx,
+        r = layer._radius,
+        s = (layer._radiusY || r) / r;
 
-		this._drawnLayers[layer._leaflet_id] = layer;
+    this._drawnLayers[layer._leaflet_id] = layer;
 
     if (layer.options.content && layer.options.font) {
       ctx.font = layer.options.font;
@@ -34,8 +34,7 @@ L.FontCanvas = L.Canvas.extend({
 
       this._fillStroke(ctx, layer);
     }
-
-	}
+  }
 });
 
 
