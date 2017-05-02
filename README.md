@@ -20,7 +20,7 @@ The `createTiles` method in `L.VectorTiles` is called per tile. It:
 
 #### State
 
-##### `this._vectorTiles`
+#### `this._vectorTiles`
 
 Each active tile on the map has an entry in `this._vectorTiles`
 
@@ -41,40 +41,20 @@ this._vectorTiles = {
 }
 ```
 
-One of the main tasks of this extension is preserving feature state as it appears across different tiles (usually as a result of zooming). The two data structures used to do this are `this._propertyStates` and  `this._styles`.
+#### `this._propertyStyles`
 
-##### `this._propertyStates`
+#### `this._propertyOnMap`
 
-A user may restyle, hide, or show features based on its (GeoJSON) properties using `restyleByProperty`, `hideByProperty`, and `showByProperty` respectively. `this._propertyStates` is used to keep track of these style modifications so that features in tiles that are loaded after a property based modification is made are displayed correctly (for example: if a feature is selected/highlighted, it show remain highlighted after zooming). The structure of `this._propertyStates` is
+#### `this._featureStyles`
 
-```js
-this._propertyStates = {
-	property1: {
-    	value1: {
-        	style: L.Path.options,
-            onMap: true
-        }
-    },
-    ...
-};
-```
+#### `this._featureOnMap`
 
-##### `this._styles`
-
-`this._styles` tracks per feature style modification. It maps feature ids to corresponding styles.
-
-```
-this._styles = {
-	featureId: L.Path.options,
-    ...
-};
-```
 
 #### Quirks
 
 ##### Performance
 
-Currently the performance bottleneck is in calling `featureGroup.addTo(this._featureGroup)`
+Bad performance in Leaflet 1.0.0. Much better in Leaflet 1.0.3.
 
 ##### `tileload` and `tileunload`
 
