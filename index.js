@@ -2,16 +2,14 @@
  * Demo application for Leaftlet.VectorTiles
  */
 
-(function main() {
+function main() {
   var map = L.map('map', {
-    //preferCanvas: true,
     center: {
       lat: 43.6260475,
       lng: -70.295306
     },
-    zoom: 13,
-    //renderer: new L.FontCanvas()
-    renderer: new L.Canvas()
+    zoom: 14,
+    renderer: new L.FontCanvas()
   });
 
   L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -25,7 +23,26 @@
     },
     map: map,
     debug: true,
-    tileSize: 128
+    tileSize: 256,
+    style: {
+      view: {
+        view_businesses: {
+          color: 'green',
+          font: '10px icomoon',
+          content: '\ue91a' // octagon
+        },
+        view_point_premise: {
+          color: 'orange',
+          font: '10px icomoon',
+          content: '\ue915' // house
+        },
+        view_poles: {
+          color: 'pink',
+          font: '10px icomoon',
+          content: '\ue909' // diamond
+        }
+      }
+    }
   }).addTo(map);
 
   var drawControl = new L.Control.Draw({
@@ -76,5 +93,14 @@
         buttonsContainer.appendChild(button);
       }
     });
-})();
+}
 
+// Make sure font is loaded before rendering tiles
+// https://github.com/typekit/webfontloader#custom
+WebFont.load({
+  custom: {
+    families: ['icomoon'],
+    urls: ['vetro-font/icomoon.css']
+  },
+  active: main
+});

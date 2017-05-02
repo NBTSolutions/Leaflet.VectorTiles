@@ -6,18 +6,17 @@
  */
 
 L.FontCanvas = L.Canvas.extend({
-  _updateCircle: function(layer) {
-    if (!this._drawing || layer._empty()) { return; }
+  _updateCircle: function (layer) {
+		if (!this._drawing || layer._empty()) { return; }
 
-    var p = layer._point,
-      ctx = this._ctx,
-      r = layer._radius,
-      s = (layer._radiusY || r) / r;
+		var p = layer._point,
+		    ctx = this._ctx,
+		    r = layer._radius,
+		    s = (layer._radiusY || r) / r;
 
-    this._drawnLayers[layer._leaflet_id] = layer;
+		this._drawnLayers[layer._leaflet_id] = layer;
 
     if (layer.options.content && layer.options.font) {
-      // Draw Circles as icons
       ctx.font = layer.options.font;
       ctx.fillStyle = layer.options.color;
       ctx.fillText(layer.options.content, p.x, p.y);
@@ -26,7 +25,6 @@ L.FontCanvas = L.Canvas.extend({
         ctx.save();
         ctx.scale(1, s);
       }
-
       ctx.beginPath();
       ctx.arc(p.x, p.y / s, r, 0, Math.PI * 2, false);
 
@@ -36,7 +34,8 @@ L.FontCanvas = L.Canvas.extend({
 
       this._fillStroke(ctx, layer);
     }
-  }
+
+	}
 });
 
 
@@ -56,6 +55,11 @@ L.FontCanvas = L.Canvas.extend({
  */
 
 L.VectorTiles = L.GridLayer.extend({
+
+  /**
+   *
+   */
+  style: {},
 
   /**
    *
@@ -91,14 +95,23 @@ L.VectorTiles = L.GridLayer.extend({
     // }
     this._vectorTiles = {};
 
-    // This table maps featureIds to styles
-    // a featureId can be found here if its style has been modified
-    // used for keeping the same feature styled the same as it appears
-    // across multiple tiles (same feature across different zoom levels)
-    // this._styles = {
-    //   <featureId>: style = { L.Path options }
+    // property based style modifications
+    // for highlighting and junk
+    // this._propertyStyles = {
+    //   propertyName: {
+    //     value1: { L.Path style options }
+    //   }
     // }
-    this._styles = {}
+    this._propertyStyles = {};
+
+    // property based toggling
+    this._propertyOnMap = {};
+
+    //
+    this._featureStyles = {};
+
+    //
+    this._featureOnMap = {};
 
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
@@ -126,23 +139,6 @@ L.VectorTiles = L.GridLayer.extend({
         this.destroyTile(e.coords);
       }
     });
-
-    // used for tracking properties that have been modified
-    // looks like this:
-    // this._propertyStates = {
-    //   propertyName: {
-    //     value1: {
-    //       style: { ... }
-    //     },
-    //     value2: {
-    //       onMap: false
-    //     }
-    //   }
-    // }
-    //
-    // onMap status (like calling `hideByProperty`) supercede
-    // style modifications
-    this._propertyStates = {};
   },
 
   /**
@@ -245,6 +241,10 @@ L.VectorTiles = L.GridLayer.extend({
       featureGroup: featureGroup
     };
 
+    var n = 0;
+
+    var start = Date.now();
+
     // fetch vector tile data for this tile
     var url = L.Util.template(this._url, coords);
     fetch(url)
@@ -252,6 +252,7 @@ L.VectorTiles = L.GridLayer.extend({
       .then(layers => {
         for (var i = 0; i < layers.length; i++) {
           for (var j = 0; j < layers[i].features.features.length; j++) {
+            n++;
             var geojson = layers[i].features.features[j];
             var id = this.options.getFeatureId(geojson);
             var layer = this._geojsonToLayer(geojson, id);
@@ -264,40 +265,46 @@ L.VectorTiles = L.GridLayer.extend({
               layer: layer
             };
 
-            // applying stylistic and visibility modification by property to new features
-            var properties = geojson.properties;
+            var style = {};
             var onMap = true;
-            for (var property in this._propertyStates) {
-              if (property in properties) {
-                for (var value in this._propertyStates[property]) {
-                  if (properties[property] === value) {
-                    // check if this feature should be added to the map
-                    if ('onMap' in this._propertyStates[property][value]
-                      && !this._propertyStates[property][value].onMap) {
-                      onMap = false;
-                    }
 
-                    // check if this feature should be restyled
-                    // perhaps similar feature are currently highlighted
-                    if ('style' in this._propertyStates[property][value]) {
-                      var style = this._propertyStates[property][value].style;
-                      layer.setStyle(style);
-                    }
-                  }
-                }
+            // property based styles
+            for (prop in geojson.properties) {
+              // apply style from options
+              if (prop in this.options.style
+                  && geojson.properties[prop] in this.options.style[prop]) {
+                Object.assign(style, this.options.style[prop][geojson.properties[prop]]);
+              }
+
+              // apply style modifications
+              if (prop in this._propertyStyles
+                  && geojson.properties[prop] in this._propertyStyles[prop]) {
+                Object.assign(style, this._propertyStyles[prop][geojson.properties[prop]]);
+              }
+
+              // put on map based on property
+              if (prop in this._propertyOnMap
+                  && geojson.properties[prop] in this._propertyOnMap[prop]) {
+                onMap = this._propertyOnMap[prop][geojson.properties[prop]];
               }
             }
 
-            // apply any styling overrides previously applied to this feature
-            if (id in this._styles) {
-              layer.setStyle(this._styles[id]);
+            // feature based styles
+            if (id in this._featureStyles) {
+              Object.assign(style, this._featureStyles[id]);
+            }
+
+            layer.setStyle(style);
+
+            // feature based on map
+            if (id in this._featureOnMap) {
+              onMap = this._featureOnMap[id];
             }
 
             if (onMap)
               featureGroup.addLayer(layer);
           }
         }
-
 
         // load new features into spatial index
         this._bulkInsertTileIntoIndex(coords);
@@ -338,17 +345,13 @@ L.VectorTiles = L.GridLayer.extend({
    * the map based on a property value
    */
   _toggleByProperty(property, value, on) {
-    if (!(property in this._propertyStates)) {
-      this._propertyStates[property] = {};
+    if (!(property in this._propertyOnMap)) {
+      this._propertyOnMap[property] = {};
     }
 
-    if (!(value in this._propertyStates[property])) {
-      this._propertyStates[property][value] = {};
-    }
+    this._propertyOnMap[property][value] = on;
 
-    this._propertyStates[property][value].onMap = on;
-
-
+    // iterate over all features and toggle as needed
     for (var tileKey in this._vectorTiles) {
       var features = this._vectorTiles[tileKey].features;
       var featureGroup = this._vectorTiles[tileKey].featureGroup;
@@ -370,6 +373,16 @@ L.VectorTiles = L.GridLayer.extend({
    * Change the style of features based on property values
    */
   restyleByProperty(property, value, style) {
+    if (!(property in this._propertyStyles)) {
+      this._propertyStyles[property] = {};
+    }
+
+    if (!(value in this._propertyStyles[property])) {
+      this._propertyStyles[property][value] = {};
+    }
+
+    Object.assign(this._propertyStyles[property][value], style);
+
     for (var tileKey in this._vectorTiles) {
       var features = this._vectorTiles[tileKey].features;
       for (var id in features) {
@@ -388,7 +401,7 @@ L.VectorTiles = L.GridLayer.extend({
    * Change the style of a feature by its id
    */
   setFeatureStyle(id, style) {
-    this._styles[id] = style;
+    this._featureStyles[id] = style;
     for (var tileKey in this._vectorTiles) {
       var features = this._vectorTiles[tileKey].features;
       if (id in features) {
@@ -404,7 +417,7 @@ L.VectorTiles = L.GridLayer.extend({
    * TODO
    */
   resetFeatureStyle(id) {
-    delete this._styles[id];
+    delete this._featureStyles[id];
     for (var tileKey in this._vectorTiles) {
       var features = this._vectorTiles[tileKey].features;
       if (id in features) {
