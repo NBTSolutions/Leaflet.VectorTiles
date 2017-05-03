@@ -210,19 +210,6 @@ L.VectorTiles = L.GridLayer.extend({
   },
 
   /**
-   *
-   */
-  destroyTile(coords) {
-    var tileKey = this._tileCoordsToKey(coords);
-
-    // remove this tile's FeatureGroup from the map
-    this._featureGroup.removeLayer(this._vectorTiles[tileKey].featureGroup);
-
-    // delete the tile's data
-    delete this._vectorTiles[tileKey];
-  },
-
-  /**
    * This method:
    *   - fetches the data for the tile
    *   - adds all of its features to the map
@@ -317,6 +304,19 @@ L.VectorTiles = L.GridLayer.extend({
       });
 
     return tile;
+  },
+
+  /**
+   *
+   */
+  destroyTile(coords) {
+    var tileKey = this._tileCoordsToKey(coords);
+
+    // remove this tile's FeatureGroup from the map
+    this._featureGroup.removeLayer(this._vectorTiles[tileKey].featureGroup);
+
+    // delete the tile's data
+    delete this._vectorTiles[tileKey];
   },
 
   /**
