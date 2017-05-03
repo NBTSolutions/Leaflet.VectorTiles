@@ -130,10 +130,12 @@ L.VectorTiles = L.GridLayer.extend({
       //this._featureGroup.removeLayer(this._vectorTiles[tileKey].featureGroup);
 
       // if the tile hasn't loaded yet wait until it loads to destroy it
-      if (!this._vectorTiles[tileKey].loaded) {
+      if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
         this.on('tileload', function(e) {
-          this.destroyTile(e.coords);
-        });
+          if (tileKey === this._tileCoordsToKey(e.coords)) {
+            this.destroyTile(e.coords);
+          }
+        }.bind(this));
       } else {
         this.destroyTile(e.coords);
       }
