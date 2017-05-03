@@ -115,7 +115,7 @@ L.VectorTiles = L.GridLayer.extend({
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
     // we need to wait for it to finish loading before we can clean up
-    this.on('tileload', function(e) {
+    this.on('vt_tileload', function(e) {
       var tileKey = this._tileCoordsToKey(e.coords);
       this._vectorTiles[tileKey].loaded = true;
     });
@@ -131,7 +131,7 @@ L.VectorTiles = L.GridLayer.extend({
 
       // if the tile hasn't loaded yet wait until it loads to destroy it
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
-        this.on('tileload', function(e) {
+        this.on('vt_tileload', function(e) {
           if (tileKey === this._tileCoordsToKey(e.coords)) {
             this.destroyTile(e.coords);
           }
@@ -242,10 +242,6 @@ L.VectorTiles = L.GridLayer.extend({
       featureGroup: featureGroup
     };
 
-    var n = 0;
-
-    var start = Date.now();
-
     // fetch vector tile data for this tile
     var url = L.Util.template(this._url, coords);
     fetch(url)
@@ -253,7 +249,6 @@ L.VectorTiles = L.GridLayer.extend({
       .then(layers => {
         for (var i = 0; i < layers.length; i++) {
           for (var j = 0; j < layers[i].features.features.length; j++) {
-            n++;
             var geojson = layers[i].features.features[j];
             var id = this.options.getFeatureId(geojson);
             var layer = this._geojsonToLayer(geojson, id);
@@ -312,6 +307,11 @@ L.VectorTiles = L.GridLayer.extend({
 
         // add the featureGroup of this tile to the map
         featureGroup.addTo(this._featureGroup);
+
+        // the tile has ~actually~ loaded
+        // the `tileload` event doesn't fire when `tileunload` fires first
+        // but in our case we still need to clean up
+        this.fire('vt_tileload', { coords: coords });
 
         done(null, tile);
       });
