@@ -438,6 +438,59 @@ L.VectorTiles = L.GridLayer.extend({
   },
 
   /**
+   * @method getLayer(id: String): L.Path
+   * Returns a reference to the layer identified by the id
+   */
+  getLayer(id) {
+    for (var tileKey in this._vectorTiles) {
+      var features = this._vectorTiles[tileKey].features;
+      for (var featureId in features) {
+        if (featureId === id) {
+          return features[id].layer;
+        }
+      }
+    }
+    return null;
+  },
+
+  /**
+   * @method getGeoJSON(id: String): L.Path
+   * Returns a reference to the GeoJSON feature identified by the id
+   */
+  getGeoJSON(id) {
+    for (var tileKey in this._vectorTiles) {
+      var features = this._vectorTiles[tileKey].features;
+      for (var featureId in features) {
+        if (featureId === id) {
+          return features[id].geojson;
+        }
+      }
+    }
+    return null;
+  },
+
+  /**
+   * @method removeFeature(id: String): this
+   */
+  removeFeature(id) {
+    for (var tileKey in this._vectorTiles) {
+      var tile = this._vectorTiles[tileKey];
+      var features = tile.features;
+      for (var featureId in features) {
+        if (featureId === id) {
+          var feature = features[id];
+          // remove layer from feature group
+          tile.featureGroup.removeLayer(feature.layer);
+          // TODO: remove from tile index
+          // remove from feature list
+          delete features[id];
+        }
+      }
+    }
+    return this;
+  },
+
+  /**
    * Convert a GeoJSON feature into a Leaflet feature
    * Point -> L.Circle
    * LineString -> L.Polyline
