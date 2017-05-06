@@ -192,21 +192,29 @@ L.VectorTiles = L.GridLayer.extend({
    * returns an array of feature ids near a given point
    */
   search(min, max) {
-    var results = [];
 
-    for (var tileKey in this._vectorTiles) {
-      var tree = this._vectorTiles[tileKey].index;
-      if (!tree)
-        continue; // index may not be built yet
-
-      var minX = min.lng;
-      var minY = min.lat;
-      var maxX = max.lng;
-      var maxY = max.lat;
-      results = results.concat(tree.search({ minX, minY, maxX, maxY }).map(r => r.id));
+    if (!this._map) {
+      throw new Error('Vector tile layer not added to the map.')
     }
 
-    return results;
+    let results = new Set();
+
+    for (let tileKey in this._vectorTiles) {
+      if (!this._vectorTiles[tileKey] || !this._vectorTiles[tileKey].index)
+        continue; // index may not be built yet
+
+      let tree = this._vectorTiles[tileKey].index
+      let minX = min.lng;
+      let minY = min.lat;
+      let maxX = max.lng;
+      let maxY = max.lat;
+
+      for (let result of tree.search({ minX, minY, maxX, maxY })) {
+        results.add(result.id);
+      }
+    }
+
+    return Array.from(results);
   },
 
   /**
@@ -528,4 +536,3 @@ L.VectorTiles = L.GridLayer.extend({
   }
 
 });
-
