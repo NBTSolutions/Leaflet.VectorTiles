@@ -86,10 +86,12 @@ L.VectorTiles = L.GridLayer.extend({
     //     features: {
     //       <featureId>: {
     //         geojson: <GeoJSON feature>,
-    //         layer: <Leaflet layer>
+    //         layer: <Leaflet layer>,
+    //         indexEntry: <RBush index item>
     //       }
     //     },
-    //     featureGroup: <L.FeatureGroup>
+    //     featureGroup: <L.FeatureGroup>,
+    //     index: <RBush>
     //   }
     // }
     this._vectorTiles = {};
@@ -174,13 +176,17 @@ L.VectorTiles = L.GridLayer.extend({
         maxY = bbox[3];
       }
 
-      bboxes.push({
+      var item = {
         minX: minX,
         minY: minY,
         maxX: maxX,
         maxY: maxY,
         id: this.options.getFeatureId(geojson),
-      });
+      };
+
+      features[id].indexEntry = item;
+
+      bboxes.push(item);
     }
 
     // bulk load all the features for this tile
@@ -230,8 +236,11 @@ L.VectorTiles = L.GridLayer.extend({
       // show tile boundaries
       tile.style.outline = '1px solid red';
     }
+
     var tileKey = this._tileCoordsToKey(coords);
+
     var featureGroup = L.featureGroup();
+
     this._vectorTiles[tileKey] = {
       features: {},
       featureGroup: featureGroup
@@ -358,6 +367,9 @@ L.VectorTiles = L.GridLayer.extend({
       this._propertyOnMap[property] = {};
     }
 
+    // did the state change
+    var toggled = this._propertyOnMap[property][value] !== on;
+
     this._propertyOnMap[property][value] = on;
 
     // iterate over all features and toggle as needed
@@ -368,10 +380,19 @@ L.VectorTiles = L.GridLayer.extend({
         var feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
-          if (on)
-            featureGroup.addLayer(feature.layer);
-          else
-            featureGroup.removeLayer(feature.layer);
+          if (toggled) {
+            if (on) {
+              // add to spatial index
+              this._vectorTiles[tileKey].index.insert(feature.indexEntry);
+              // add to map
+              featureGroup.addLayer(feature.layer);
+            } else {
+              // remove from spatial index
+              this._vectorTiles[tileKey].index.remove(feature.indexEntry);
+              // remove from map
+              featureGroup.removeLayer(feature.layer);
+            }
+          }
         }
       }
     }
@@ -536,3 +557,4 @@ L.VectorTiles = L.GridLayer.extend({
   }
 
 });
+
