@@ -133,7 +133,7 @@ L.VectorTiles = L.GridLayer.extend({
 
       // if the tile hasn't loaded yet wait until it loads to destroy it
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
-        this.on('vt_tileload', function(e) {
+        this.once('vt_tileload', function(e) {
           if (tileKey === this._tileCoordsToKey(e.coords)) {
             this.destroyTile(e.coords);
           }
@@ -142,6 +142,20 @@ L.VectorTiles = L.GridLayer.extend({
         this.destroyTile(e.coords);
       }
     });
+
+    // are you currently zooming
+    this._zooming = false;
+
+    this._map.on('zoomstart', function() {
+      this._zooming = true;
+    }.bind(this));
+
+    this._map.on('zoomend', function() {
+      this._zooming = false;
+    }.bind(this));
+
+    // tiles to be loaded
+    this._tileQueue = {};
   },
 
   /**
@@ -236,7 +250,14 @@ L.VectorTiles = L.GridLayer.extend({
       // show tile boundaries
       tile.style.outline = '1px solid red';
     }
+    this._createTile(coords);
+    var tileKey = this._tileCoordsToKey(coords);
+    //this._tileQueue[tileKey] = true;
+    done(null, tile);
+    return tile;
+  },
 
+  _createTile: function(coords) {
     var tileKey = this._tileCoordsToKey(coords);
 
     var featureGroup = L.featureGroup();
@@ -252,7 +273,18 @@ L.VectorTiles = L.GridLayer.extend({
       .then(res => res.json())
       .then(layers => {
         for (var i = 0; i < layers.length; i++) {
+          // break out if we're already past this zoom level
+          // before we're done loading the tile
+          if (coords.z !== this._map.getZoom()) {
+            break;
+          }
           for (var j = 0; j < layers[i].features.features.length; j++) {
+            // break out if we're already past this zoom level
+            // before we're done loading the tile
+            if (coords.z !== this._map.getZoom()) {
+              break;
+            }
+
             var geojson = layers[i].features.features[j];
             var id = this.options.getFeatureId(geojson);
             var layer = this._geojsonToLayer(geojson, id);
@@ -260,6 +292,7 @@ L.VectorTiles = L.GridLayer.extend({
               // unsupported geometry type
               continue;
             }
+
             this._vectorTiles[tileKey].features[id] = {
               geojson: geojson,
               layer: layer
@@ -314,13 +347,9 @@ L.VectorTiles = L.GridLayer.extend({
 
         // the tile has ~actually~ loaded
         // the `tileload` event doesn't fire when `tileunload` fires first
-        // but in our case we still need to clean up
+        // but in our case we still need to be finished loading to clean up
         this.fire('vt_tileload', { coords: coords });
-
-        done(null, tile);
       });
-
-    return tile;
   },
 
   /**
@@ -340,7 +369,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @method hideByProperty(property: String, value: String): this
    * Removes features from the map by property
    * Wrapper function of _toggleByProperty
-   *   equivalent to this._toggleByProperty(property, value, false);
+   * Equivalent to this._toggleByProperty(property, value, false);
    */
   hideByProperty(property, value) {
     this._toggleByProperty(property, value, false);
@@ -367,7 +396,7 @@ L.VectorTiles = L.GridLayer.extend({
       this._propertyOnMap[property] = {};
     }
 
-    // did the state change
+    // did the state change?
     var toggled = this._propertyOnMap[property][value] !== on;
 
     this._propertyOnMap[property][value] = on;
@@ -500,6 +529,8 @@ L.VectorTiles = L.GridLayer.extend({
 
   /**
    * @method removeFeature(id: String): this
+   * Deletes a feature by its ID
+   * Note that this feature will still be loaded in subsequent tiles
    */
   removeFeature(id) {
     for (var tileKey in this._vectorTiles) {
@@ -510,7 +541,8 @@ L.VectorTiles = L.GridLayer.extend({
           var feature = features[id];
           // remove layer from feature group
           tile.featureGroup.removeLayer(feature.layer);
-          // TODO: remove from tile index
+          // remove from tile index
+          tile.index.remove(feature.indexEntry);
           // remove from feature list
           delete features[id];
         }
@@ -524,6 +556,7 @@ L.VectorTiles = L.GridLayer.extend({
    * Point -> L.Circle
    * LineString -> L.Polyline
    * Polygon/Multipolygon -> L.Polygon
+   * Here we must make lon,lat (GeoJSON) into lat,lon (Leaflet)
    */
   _geojsonToLayer(feature, id) {
     var layer;
