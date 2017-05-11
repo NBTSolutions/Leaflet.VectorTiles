@@ -114,12 +114,19 @@ L.VectorTiles = L.GridLayer.extend({
     //
     this._featureOnMap = {};
 
+    //
+    this._unloaded = {};
+
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
     // we need to wait for it to finish loading before we can clean up
     this.on('vt_tileload', function(e) {
       var tileKey = this._tileCoordsToKey(e.coords);
       this._vectorTiles[tileKey].loaded = true;
+      if (this._unloaded[tileKey]) {
+        this.destroyTile(e.coords);
+        delete this._unloaded[tileKey];
+      }
     });
 
     // listen for tileunload event and clean up old features
@@ -133,11 +140,14 @@ L.VectorTiles = L.GridLayer.extend({
 
       // if the tile hasn't loaded yet wait until it loads to destroy it
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
+        this._unloaded[tileKey] = true;
+        /*
         this.once('vt_tileload', function(e) {
           if (tileKey === this._tileCoordsToKey(e.coords)) {
             this.destroyTile(e.coords);
           }
         }.bind(this));
+        */
       } else {
         this.destroyTile(e.coords);
       }
@@ -252,7 +262,7 @@ L.VectorTiles = L.GridLayer.extend({
     }
     this._createTile(coords);
     var tileKey = this._tileCoordsToKey(coords);
-    //this._tileQueue[tileKey] = true;
+    this._tileQueue[tileKey] = true;
     done(null, tile);
     return tile;
   },
@@ -302,7 +312,7 @@ L.VectorTiles = L.GridLayer.extend({
             var onMap = true;
 
             // property based styles
-            for (prop in geojson.properties) {
+            for (var prop in geojson.properties) {
               // apply style from options
               if (prop in this.options.style
                   && geojson.properties[prop] in this.options.style[prop]) {
