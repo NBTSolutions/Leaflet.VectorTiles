@@ -87,11 +87,13 @@ L.VectorTiles = L.GridLayer.extend({
     //       <featureId>: {
     //         geojson: <GeoJSON feature>,
     //         layer: <Leaflet layer>,
-    //         indexEntry: <RBush index item>
+    //         indexEntry: <RBush index item>,
     //       }
     //     },
     //     featureGroup: <L.FeatureGroup>,
     //     index: <RBush>
+    //     loaded: <boolean>,
+    //     valid: <boolean>
     //   }
     // }
     this._vectorTiles = {};
@@ -108,46 +110,31 @@ L.VectorTiles = L.GridLayer.extend({
     // property based toggling
     this._propertyOnMap = {};
 
-    //
+    // track individual feature style modifications
     this._featureStyles = {};
 
-    //
+    // mark individual features as on or off the map
     this._featureOnMap = {};
-
-    //
-    this._unloaded = {};
 
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
     // we need to wait for it to finish loading before we can clean up
-    this.on('vt_tileload', function(e) {
+    this.on('vt_tileload', function onVtTileUnload(e) {
       var tileKey = this._tileCoordsToKey(e.coords);
       this._vectorTiles[tileKey].loaded = true;
-      if (this._unloaded[tileKey]) {
+      if (!this._vectorTiles[tileKey].valid) {
         this.destroyTile(e.coords);
-        delete this._unloaded[tileKey];
       }
     });
 
     // listen for tileunload event and clean up old features
-    this.on('tileunload', function(e) {
+    this.on('tileunload', function onTileUnload(e) {
       var tileKey = this._tileCoordsToKey(e.coords);
-
-      // this is done here instead of in this.destroyTile because
-      // we don't want the map to keep rendering features that are
-      // no longer visible (which happens when tileunload fires before tileload)
-      //this._featureGroup.removeLayer(this._vectorTiles[tileKey].featureGroup);
 
       // if the tile hasn't loaded yet wait until it loads to destroy it
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
-        this._unloaded[tileKey] = true;
-        /*
-        this.once('vt_tileload', function(e) {
-          if (tileKey === this._tileCoordsToKey(e.coords)) {
-            this.destroyTile(e.coords);
-          }
-        }.bind(this));
-        */
+        // invalidate the tile so that it is deleted when its done loading
+        this._vectorTiles[tileKey].valid = 'false';
       } else {
         this.destroyTile(e.coords);
       }
@@ -156,11 +143,11 @@ L.VectorTiles = L.GridLayer.extend({
     // are you currently zooming
     this._zooming = false;
 
-    this._map.on('zoomstart', function() {
+    this._map.on('zoomstart', function onZoomStart() {
       this._zooming = true;
     }.bind(this));
 
-    this._map.on('zoomend', function() {
+    this._map.on('zoomend', function onZoomEnd() {
       this._zooming = false;
     }.bind(this));
 
@@ -274,7 +261,8 @@ L.VectorTiles = L.GridLayer.extend({
 
     this._vectorTiles[tileKey] = {
       features: {},
-      featureGroup: featureGroup
+      featureGroup: featureGroup,
+      valid: true
     };
 
     // fetch vector tile data for this tile
@@ -344,8 +332,9 @@ L.VectorTiles = L.GridLayer.extend({
               onMap = this._featureOnMap[id];
             }
 
-            if (onMap)
+            if (onMap) {
               featureGroup.addLayer(layer);
+            }
           }
         }
 
@@ -373,6 +362,8 @@ L.VectorTiles = L.GridLayer.extend({
 
     // delete the tile's data
     delete this._vectorTiles[tileKey];
+
+    this.fire('vt_tileunload', { coords: coords });
   },
 
   /**
