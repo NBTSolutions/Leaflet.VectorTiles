@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build-docs": "./node_modules/.bin/documentation build Leaflet.VectorTiles.js -f md > API.md",
+    "lint": "./node_modules/.bin/eslint Leaflet.VectorTiles.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,6 +22,9 @@
   },
   "homepage": "https://github.com/NBTSolutions/Leaflet.VectorTiles#readme",
   "devDependencies": {
-    "documentation": "^4.0.0-rc.1"
+    "documentation": "^4.0.0-rc.1",
+    "eslint": "^3.19.0",
+    "eslint-config-airbnb-base": "^11.2.0",
+    "eslint-plugin-import": "^2.2.0"
   }
 }

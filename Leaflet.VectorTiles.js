@@ -12,13 +12,13 @@
  */
 
 L.FontCanvas = L.Canvas.extend({
-  _updateCircle: function (layer) {
+  _updateCircle(layer) {
     if (!this._drawing || layer._empty()) { return; }
 
-    var p = layer._point,
-        ctx = this._ctx,
-        r = layer._radius,
-        s = (layer._radiusY || r) / r;
+    const p = layer._point;
+    const ctx = this._ctx;
+    const r = layer._radius;
+    const s = (layer._radiusY || r) / r;
 
     this._drawnLayers[layer._leaflet_id] = layer;
 
@@ -128,8 +128,8 @@ L.VectorTiles = L.GridLayer.extend({
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
     // we need to wait for it to finish loading before we can clean up
-    this.on('vt_tileload', function onVtTileUnload(e) {
-      var tileKey = this._tileCoordsToKey(e.coords);
+    this.on('vt_tileload', (e) => {
+      const tileKey = this._tileCoordsToKey(e.coords);
       this._vectorTiles[tileKey].loaded = true;
       if (!this._vectorTiles[tileKey].valid) {
         this.destroyTile(e.coords);
@@ -137,8 +137,8 @@ L.VectorTiles = L.GridLayer.extend({
     });
 
     // listen for tileunload event and clean up old features
-    this.on('tileunload', function onTileUnload(e) {
-      var tileKey = this._tileCoordsToKey(e.coords);
+    this.on('tileunload', (e) => {
+      const tileKey = this._tileCoordsToKey(e.coords);
 
       // if the tile hasn't loaded yet wait until it loads to destroy it
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
@@ -152,13 +152,13 @@ L.VectorTiles = L.GridLayer.extend({
     // are you currently zooming
     this._zooming = false;
 
-    this._map.on('zoomstart', function onZoomStart() {
+    this._map.on('zoomstart', () => {
       this._zooming = true;
-    }.bind(this));
+    });
 
-    this._map.on('zoomend', function onZoomEnd() {
+    this._map.on('zoomend', () => {
       this._zooming = false;
-    }.bind(this));
+    });
 
     // tiles to be loaded
     this._tileQueue = {};
@@ -175,35 +175,40 @@ L.VectorTiles = L.GridLayer.extend({
    * @private
    */
   _bulkInsertTileIntoIndex(coords) {
-    var tileKey = this._tileCoordsToKey(coords);
+    const tileKey = this._tileCoordsToKey(coords);
 
     this._vectorTiles[tileKey].index = rbush();
 
-    var features = this._vectorTiles[tileKey].features;
-    var bboxes = [];
-    for (var id in features) {
-      var geojson = features[id].geojson;
-      var geom = geojson.geometry;
-      var c = geojson.geometry.coordinates;
+    const features = this._vectorTiles[tileKey].features;
+    const bboxes = [];
+    for (const id in features) {
+      const geojson = features[id].geojson;
+      const geom = geojson.geometry;
+      const c = geojson.geometry.coordinates;
 
-      var minX, minY, maxX, maxY;
+      let minX,
+        minY,
+        maxX,
+        maxY;
 
       if (geom.type === 'Point') {
-        minX = maxX = c[0];
-        minY = maxY = c[1];
+        minX = c[0];
+        maxX = c[0];
+        minY = c[1];
+        maxY = c[1];
       } else {
-        var bbox = turf.bbox(geom);
+        const bbox = turf.bbox(geom);
         minX = bbox[0];
         minY = bbox[1];
         maxX = bbox[2];
         maxY = bbox[3];
       }
 
-      var item = {
-        minX: minX,
-        minY: minY,
-        maxX: maxX,
-        maxY: maxY,
+      const item = {
+        minX,
+        minY,
+        maxX,
+        maxY,
         id: this.options.getFeatureId(geojson),
       };
 
@@ -225,22 +230,22 @@ L.VectorTiles = L.GridLayer.extend({
    */
   search(min, max) {
     if (!this._map) {
-      throw new Error('Vector tile layer not added to the map.')
+      throw new Error('Vector tile layer not added to the map.');
     }
 
-    let results = new Set();
+    const results = new Set();
 
-    for (let tileKey in this._vectorTiles) {
+    for (const tileKey in this._vectorTiles) {
       if (!this._vectorTiles[tileKey] || !this._vectorTiles[tileKey].index)
         continue; // index may not be built yet
 
-      let tree = this._vectorTiles[tileKey].index
-      let minX = min.lng;
-      let minY = min.lat;
-      let maxX = max.lng;
-      let maxY = max.lat;
+      const tree = this._vectorTiles[tileKey].index;
+      const minX = min.lng;
+      const minY = min.lat;
+      const maxX = max.lng;
+      const maxY = max.lat;
 
-      for (let result of tree.search({ minX, minY, maxX, maxY })) {
+      for (const result of tree.search({ minX, minY, maxX, maxY })) {
         results.add(result.id);
       }
     }
@@ -261,23 +266,23 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns DOM element
    * @private
    */
-  createTile: function(coords, done) {
-    var tile = L.DomUtil.create('div', 'leaflet-tile');
+  createTile(coords, done) {
+    const tile = L.DomUtil.create('div', 'leaflet-tile');
     if (this.options.debug) {
       // show tile boundaries
       tile.style.outline = '1px solid red';
     }
     this._createTile(coords);
-    var tileKey = this._tileCoordsToKey(coords);
+    const tileKey = this._tileCoordsToKey(coords);
     this._tileQueue[tileKey] = true;
     done(null, tile);
     return tile;
   },
 
-  _createTile: function(coords) {
-    var tileKey = this._tileCoordsToKey(coords);
+  _createTile(coords) {
+    const tileKey = this._tileCoordsToKey(coords);
 
-    var featureGroup = L.featureGroup();
+    const featureGroup = L.featureGroup();
 
     this._vectorTiles[tileKey] = {
       features: {},
@@ -286,41 +291,41 @@ L.VectorTiles = L.GridLayer.extend({
     };
 
     // fetch vector tile data for this tile
-    var url = L.Util.template(this._url, coords);
+    const url = L.Util.template(this._url, coords);
     fetch(url)
       .then(res => res.json())
-      .then(layers => {
-        for (var i = 0; i < layers.length; i++) {
+      .then((layers) => {
+        for (let i = 0; i < layers.length; i++) {
           // break out if we're already past this zoom level
           // before we're done loading the tile
           if (coords.z !== this._map.getZoom()) {
             break;
           }
-          for (var j = 0; j < layers[i].features.features.length; j++) {
+          for (let j = 0; j < layers[i].features.features.length; j++) {
             // break out if we're already past this zoom level
             // before we're done loading the tile
             if (coords.z !== this._map.getZoom()) {
               break;
             }
 
-            var geojson = layers[i].features.features[j];
-            var id = this.options.getFeatureId(geojson);
-            var layer = this._geojsonToLayer(geojson, id);
+            const geojson = layers[i].features.features[j];
+            const id = this.options.getFeatureId(geojson);
+            const layer = this._geojsonToLayer(geojson, id);
             if (!layer) {
               // unsupported geometry type
               continue;
             }
 
             this._vectorTiles[tileKey].features[id] = {
-              geojson: geojson,
-              layer: layer
+              geojson,
+              layer
             };
 
-            var style = {};
-            var onMap = true;
+            const style = {};
+            let onMap = true;
 
             // property based styles
-            for (var prop in geojson.properties) {
+            for (const prop in geojson.properties) {
               // apply style from options
               if (prop in this.options.style
                   && geojson.properties[prop] in this.options.style[prop]) {
@@ -367,7 +372,7 @@ L.VectorTiles = L.GridLayer.extend({
         // the tile has ~actually~ loaded
         // the `tileload` event doesn't fire when `tileunload` fires first
         // but in our case we still need to be finished loading to clean up
-        this.fire('vt_tileload', { coords: coords });
+        this.fire('vt_tileload', { coords });
       });
   },
 
@@ -380,7 +385,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @private
    */
   destroyTile(coords) {
-    var tileKey = this._tileCoordsToKey(coords);
+    const tileKey = this._tileCoordsToKey(coords);
 
     // remove this tile's FeatureGroup from the map
     this._featureGroup.removeLayer(this._vectorTiles[tileKey].featureGroup);
@@ -388,7 +393,7 @@ L.VectorTiles = L.GridLayer.extend({
     // delete the tile's data
     delete this._vectorTiles[tileKey];
 
-    this.fire('vt_tileunload', { coords: coords });
+    this.fire('vt_tileunload', { coords });
   },
 
   /**
@@ -432,16 +437,16 @@ L.VectorTiles = L.GridLayer.extend({
     }
 
     // did the state change?
-    var toggled = this._propertyOnMap[property][value] !== on;
+    const toggled = this._propertyOnMap[property][value] !== on;
 
     this._propertyOnMap[property][value] = on;
 
     // iterate over all features and toggle as needed
-    for (var tileKey in this._vectorTiles) {
-      var features = this._vectorTiles[tileKey].features;
-      var featureGroup = this._vectorTiles[tileKey].featureGroup;
-      for (var id in features) {
-        var feature = features[id];
+    for (const tileKey in this._vectorTiles) {
+      const features = this._vectorTiles[tileKey].features;
+      const featureGroup = this._vectorTiles[tileKey].featureGroup;
+      for (const id in features) {
+        const feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
           if (toggled) {
@@ -481,10 +486,10 @@ L.VectorTiles = L.GridLayer.extend({
 
     Object.assign(this._propertyStyles[property][value], style);
 
-    for (var tileKey in this._vectorTiles) {
-      var features = this._vectorTiles[tileKey].features;
-      for (var id in features) {
-        var feature = features[id];
+    for (const tileKey in this._vectorTiles) {
+      const features = this._vectorTiles[tileKey].features;
+      for (const id in features) {
+        const feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
           feature.layer.setStyle(style);
@@ -504,10 +509,10 @@ L.VectorTiles = L.GridLayer.extend({
    */
   setFeatureStyle(id, style) {
     this._featureStyles[id] = style;
-    for (var tileKey in this._vectorTiles) {
-      var features = this._vectorTiles[tileKey].features;
+    for (const tileKey in this._vectorTiles) {
+      const features = this._vectorTiles[tileKey].features;
       if (id in features) {
-        var layer = features[id].layer;
+        const layer = features[id].layer;
         layer.setStyle(style);
       }
     }
@@ -522,10 +527,10 @@ L.VectorTiles = L.GridLayer.extend({
    */
   resetFeatureStyle(id) {
     delete this._featureStyles[id];
-    for (var tileKey in this._vectorTiles) {
-      var features = this._vectorTiles[tileKey].features;
+    for (const tileKey in this._vectorTiles) {
+      const features = this._vectorTiles[tileKey].features;
       if (id in features) {
-        var layer = features[id].layer;
+        const layer = features[id].layer;
         // layer.resetStyle();
       }
     }
@@ -548,9 +553,9 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns {L.Path}
    */
   getLayer(id) {
-    for (var tileKey in this._vectorTiles) {
-      var features = this._vectorTiles[tileKey].features;
-      for (var featureId in features) {
+    for (const tileKey in this._vectorTiles) {
+      const features = this._vectorTiles[tileKey].features;
+      for (const featureId in features) {
         if (featureId === id) {
           return features[id].layer;
         }
@@ -566,9 +571,9 @@ L.VectorTiles = L.GridLayer.extend({
    * @return {Object}
    */
   getGeoJSON(id) {
-    for (var tileKey in this._vectorTiles) {
-      var features = this._vectorTiles[tileKey].features;
-      for (var featureId in features) {
+    for (const tileKey in this._vectorTiles) {
+      const features = this._vectorTiles[tileKey].features;
+      for (const featureId in features) {
         if (featureId === id) {
           return features[id].geojson;
         }
@@ -585,12 +590,12 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns {L.VectorTiles} this
    */
   removeFeature(id) {
-    for (var tileKey in this._vectorTiles) {
-      var tile = this._vectorTiles[tileKey];
-      var features = tile.features;
-      for (var featureId in features) {
+    for (const tileKey in this._vectorTiles) {
+      const tile = this._vectorTiles[tileKey];
+      const features = tile.features;
+      for (const featureId in features) {
         if (featureId === id) {
-          var feature = features[id];
+          const feature = features[id];
           // remove layer from feature group
           tile.featureGroup.removeLayer(feature.layer);
           // remove from tile index
@@ -616,28 +621,29 @@ L.VectorTiles = L.GridLayer.extend({
    * @private
    */
   _geojsonToLayer(feature, id) {
-    var layer;
+    let layer;
+    let coords;
     switch (feature.geometry.type) {
       case 'Point':
-        var coords = feature.geometry.coordinates;
+        coords = feature.geometry.coordinates;
         layer = L.circle([coords[1], coords[0]], {
           radius: 40
         });
         break;
 
       case 'LineString':
-        var coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+        coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
         layer = L.polyline(coords, {});
         break;
 
       case 'Polygon':
       case 'MultiPolygon':
-        var coords = feature.geometry.coordinates.map(ring => ring.map(c => [c[1], c[0]]));
+        coords = feature.geometry.coordinates.map(ring => ring.map(c => [c[1], c[0]]));
         layer = L.polygon(coords, {});
         break;
 
       default:
-        console.log('Unsupported feature type: ' + feature.geometry.type);
+        console.log(`Unsupported feature type: ${feature.geometry.type}`);
         return null;
     }
 
