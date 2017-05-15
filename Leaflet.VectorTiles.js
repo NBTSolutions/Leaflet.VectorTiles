@@ -64,12 +64,13 @@ L.VectorTiles = L.GridLayer.extend({
   /**
    * Constructor
    *
+   * @constructs
    * @param {string} url The url for fectching vector tiles
    * @param {Object} options
+   * @param {L.Map} [options.map]
    * @param {Function} [options.getFeatureId]
    * @param {boolean} [options.debug]
    * @param {Object} [options.style]
-   * @private
    */
   initialize(url, options) {
     L.Util.setOptions(options);
