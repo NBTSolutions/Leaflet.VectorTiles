@@ -182,14 +182,17 @@ L.VectorTiles = L.GridLayer.extend({
     const features = this._vectorTiles[tileKey].features;
     const bboxes = [];
     for (const id in features) {
+      if (!features.hasOwnProperty(id)) {
+        continue;
+      }
       const geojson = features[id].geojson;
       const geom = geojson.geometry;
       const c = geojson.geometry.coordinates;
 
-      let minX,
-        minY,
-        maxX,
-        maxY;
+      let minX;
+      let minY;
+      let maxX;
+      let maxY;
 
       if (geom.type === 'Point') {
         minX = c[0];
@@ -236,8 +239,12 @@ L.VectorTiles = L.GridLayer.extend({
     const results = new Set();
 
     for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles[tileKey] || !this._vectorTiles[tileKey].index)
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
+      if (!this._vectorTiles[tileKey] || !this._vectorTiles[tileKey].index) {
         continue; // index may not be built yet
+      }
 
       const tree = this._vectorTiles[tileKey].index;
       const minX = min.lng;
@@ -286,7 +293,7 @@ L.VectorTiles = L.GridLayer.extend({
 
     this._vectorTiles[tileKey] = {
       features: {},
-      featureGroup: featureGroup,
+      featureGroup,
       valid: true
     };
 
@@ -323,9 +330,10 @@ L.VectorTiles = L.GridLayer.extend({
 
             const style = {};
             let onMap = true;
+            let prop;
 
             // property based styles
-            for (const prop in geojson.properties) {
+            for (prop in geojson.properties) {
               // apply style from options
               if (prop in this.options.style
                   && geojson.properties[prop] in this.options.style[prop]) {
@@ -443,9 +451,15 @@ L.VectorTiles = L.GridLayer.extend({
 
     // iterate over all features and toggle as needed
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const features = this._vectorTiles[tileKey].features;
       const featureGroup = this._vectorTiles[tileKey].featureGroup;
       for (const id in features) {
+        if (!features.hasOwnProperty(id)) {
+          continue;
+        }
         const feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
@@ -487,8 +501,14 @@ L.VectorTiles = L.GridLayer.extend({
     Object.assign(this._propertyStyles[property][value], style);
 
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const features = this._vectorTiles[tileKey].features;
       for (const id in features) {
+        if (!features.hasOwnProperty(id)) {
+          continue;
+        }
         const feature = features[id];
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
@@ -510,6 +530,9 @@ L.VectorTiles = L.GridLayer.extend({
   setFeatureStyle(id, style) {
     this._featureStyles[id] = style;
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const features = this._vectorTiles[tileKey].features;
       if (id in features) {
         const layer = features[id].layer;
@@ -528,9 +551,12 @@ L.VectorTiles = L.GridLayer.extend({
   resetFeatureStyle(id) {
     delete this._featureStyles[id];
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const features = this._vectorTiles[tileKey].features;
       if (id in features) {
-        const layer = features[id].layer;
+        // const layer = features[id].layer;
         // layer.resetStyle();
       }
     }
@@ -554,6 +580,9 @@ L.VectorTiles = L.GridLayer.extend({
    */
   getLayer(id) {
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const features = this._vectorTiles[tileKey].features;
       for (const featureId in features) {
         if (featureId === id) {
@@ -572,6 +601,9 @@ L.VectorTiles = L.GridLayer.extend({
    */
   getGeoJSON(id) {
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const features = this._vectorTiles[tileKey].features;
       for (const featureId in features) {
         if (featureId === id) {
@@ -591,6 +623,9 @@ L.VectorTiles = L.GridLayer.extend({
    */
   removeFeature(id) {
     for (const tileKey in this._vectorTiles) {
+      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
+        continue;
+      }
       const tile = this._vectorTiles[tileKey];
       const features = tile.features;
       for (const featureId in features) {
