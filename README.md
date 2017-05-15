@@ -2,18 +2,7 @@
 
 Render (GeoJSON) vector tiles on an [L.GridLayer][1] with an [L.Canvas][2] renderer
 
-## API
-
-- `search`
-- `hideByProperty`
-- `showByProperty`
-- `restyleByProperty`
-- `setFeatureStyle`
-- `resetFeatureStyle`
-- `getFeatureGroup`
-- `getLayer`
-- `getGeoJSON`
-- `removeFeature`
+API Documentation is in [API.md](API.md)
 
 ## Developing
 
