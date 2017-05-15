@@ -1,0 +1,26 @@
+{
+  "name": "leaflet.vectortiles",
+  "version": "0.0.1",
+  "description": "Render (GeoJSON) vector tiles on an [L.GridLayer][1] with an [L.Canvas][2] renderer",
+  "main": "Leaflet.VectorTiles.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "build-docs": "./node_modules/.bin/documentation build Leaflet.VectorTiles.js -f md > API.md",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NBTSolutions/Leaflet.VectorTiles.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NBTSolutions/Leaflet.VectorTiles/issues"
+  },
+  "homepage": "https://github.com/NBTSolutions/Leaflet.VectorTiles#readme",
+  "devDependencies": {
+    "documentation": "^4.0.0-rc.1"
+  }
+}

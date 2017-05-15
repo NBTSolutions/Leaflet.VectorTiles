@@ -19,14 +19,14 @@ Render (GeoJSON) vector tiles on an [L.GridLayer][1] with an [L.Canvas][2] rende
 
 ### `L.VectorTiles`
 
-This library is primarily a class `L.VectorTiles`. It extends `L.GridLayer`.
+This extension is primarily a class `L.VectorTiles`. It extends `L.GridLayer`.
 
 #### `createTiles()`
 
 Classes that extend `L.GridLayer` must override the `createTiles` method.
 
-The `createTiles` method in `L.VectorTiles` is called per tile. It:
-- Fetches the data for that tile from the tile service
+The `createTiles` method in `L.VectorTiles` is called per tile. It does the following:
+- Fetch the data for that tile from the tile service
 - Create the data structure that represents each tile (`this._vectorTiles`)
 - Index all features in the tile
 - Render all features in the tile
@@ -49,7 +49,8 @@ this._vectorTiles = {
             ...
         },
         featureGroup: <L.FeatureGroup>, // holdes all layers in this tile
-        loaded: <Boolean> // has this tile finished loading
+        loaded: <Boolean>, // has this tile finished loading
+        valid: <Boolean> // is the tile still on the map (false if the tile has been unloaded)
     }
 }
 ```
@@ -61,7 +62,6 @@ this._vectorTiles = {
 #### `this._featureStyles`
 
 #### `this._featureOnMap`
-
 
 #### Quirks
 
