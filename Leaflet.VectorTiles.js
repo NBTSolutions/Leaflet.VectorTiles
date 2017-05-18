@@ -63,13 +63,23 @@ class Feature {
     this.indexEntry = null;
   }
 
+  /**
+   * @param {Object} style
+   * returns {Feature} this
+   */
   setStyle(style) {
     Object.assign(this.style, style);
     this.layer.setStyle(this.style);
+    return this;
   }
 
+  /**
+   * @param {boolean} on
+   * @returns {Feature} this
+   */
   putOnMap(on) {
     this.onMap = on;
+    return this;
   }
 }
 
@@ -98,10 +108,13 @@ class Tile {
 
   /**
    * Call this method when all features have been added to the tile
+   *
+   * @returns {Tile} this
    */
   init() {
     this.indexFeatures();
     this.render();
+    return this;
   }
 
   /**
@@ -181,6 +194,7 @@ class Tile {
   }
 
   /**
+   * @param {string} id
    * @returns {Feature}
    */
   getFeature(id) {
@@ -188,6 +202,10 @@ class Tile {
   }
 
   /**
+   * @param {number} minX
+   * @param {number} minY
+   * @param {number} maxX
+   * @param {number} maxY
    * @returns {Array<String>} an array of feature ids of features that intersect
    * the bounding box
    */
@@ -468,7 +486,7 @@ L.VectorTiles = L.GridLayer.extend({
               onMap = this._featureOnMap[id];
             }
 
-            feature.onMap = onMap;
+            feature.putOnMap(onMap);
           }
         }
 
@@ -636,18 +654,11 @@ L.VectorTiles = L.GridLayer.extend({
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      //const features = this._vectorTiles[tileKey].features;
       const tile = this._vectorTiles[tileKey];
       if (tile.contains(id)) {
         const feature = tile.getFeature(id);
         feature.setStyle(style);
       }
-      /*
-      if (id in features) {
-        const layer = features[id].layer;
-        layer.setStyle(style);
-      }
-      */
     }
     return this;
   },
