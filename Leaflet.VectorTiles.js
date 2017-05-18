@@ -195,6 +195,20 @@ class Tile {
 
   /**
    * @param {string} id
+   * @returns {Tile} this
+   */
+  removeFeature(id) {
+    if (!this.contains(id)) {
+      return this;
+    }
+    const feature = this.getFeature(id);
+    this.featureGroup.removeLayer(feature.layer);
+    this.index.remove(feature.indexEntry);
+    delete this.features[id];
+  }
+
+  /**
+   * @param {string} id
    * @returns {Feature}
    */
   getFeature(id) {
@@ -223,10 +237,55 @@ class Tile {
   }
 
   /**
-   * @return {L.FeatureGroup}
+   * @param {string} property
+   * @param {string} value
+   * @param {boolean} on
+   * @param {boolead} toggled
+   * @returns {Tile} this
    */
-  getFeatureGroup() {
-    return this.featureGroup;
+  toggleByProperty(property, value, on, toggled) {
+    let feature;
+    let geoj;
+    for (const id in this.features) {
+      if (!this.features.hasOwnProperty(id)) {
+        continue;
+      }
+      feature = this.getFeature(id);
+      geoj = feature.geojson;
+      if (property in geoj.properties && geoj.properties[property] === value) {
+        if (toggled) {
+          if (on) {
+            this.index.insert(feature.indexEntry);
+            this.featureGroup.addLayer(feature.layer);
+          } else {
+            this.index.remove(feature.indexEntry);
+            this.featureGroup.removeLayer(feature.layer);
+          }
+        }
+      }
+    }
+    return this;
+  }
+
+  /**
+   * @param {string} property
+   * @param {string} value
+   * @param {Object} style
+   * @returns {Tile} this
+   */
+  restyleByProperty(property, value, style) {
+    let feature;
+    for (const id in this.features) {
+      if (!this.features.hasOwnProperty(id)) {
+        continue;
+      }
+      feature = this.getFeature(id);
+      if (property in feature.geojson.properties
+          && feature.geojson.properties[property] === value) {
+        feature.layer.setStyle(style);
+      }
+    }
+    return this;
   }
 
   /**
@@ -495,7 +554,7 @@ L.VectorTiles = L.GridLayer.extend({
           tile.init();
 
           // add the featureGroup of this tile to the map
-          tile.getFeatureGroup().addTo(this._featureGroup);
+          tile.featureGroup.addTo(this._featureGroup);
         }
 
         // mark tile as loaded
@@ -519,7 +578,7 @@ L.VectorTiles = L.GridLayer.extend({
     const tileKey = this._tileCoordsToKey(coords);
 
     // remove this tile's FeatureGroup from the map
-    this._featureGroup.removeLayer(this._vectorTiles[tileKey].getFeatureGroup());
+    this._featureGroup.removeLayer(this._vectorTiles[tileKey].featureGroup);
 
     // delete the tile's data
     delete this._vectorTiles[tileKey];
@@ -570,35 +629,13 @@ L.VectorTiles = L.GridLayer.extend({
 
     this._propertyOnMap[property][value] = on;
 
-    // iterate over all features and toggle as needed
+    let tile;
     for (const tileKey in this._vectorTiles) {
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      const features = this._vectorTiles[tileKey].features;
-      const featureGroup = this._vectorTiles[tileKey].featureGroup;
-      for (const id in features) {
-        if (!features.hasOwnProperty(id)) {
-          continue;
-        }
-        const feature = features[id];
-        if (property in feature.geojson.properties
-            && feature.geojson.properties[property] === value) {
-          if (toggled) {
-            if (on) {
-              // add to spatial index
-              this._vectorTiles[tileKey].index.insert(feature.indexEntry);
-              // add to map
-              featureGroup.addLayer(feature.layer);
-            } else {
-              // remove from spatial index
-              this._vectorTiles[tileKey].index.remove(feature.indexEntry);
-              // remove from map
-              featureGroup.removeLayer(feature.layer);
-            }
-          }
-        }
-      }
+      tile = this._vectorTiles[tileKey];
+      tile.toggleByProperty(property, value, on, toggled);
     }
   },
 
@@ -621,21 +658,13 @@ L.VectorTiles = L.GridLayer.extend({
 
     Object.assign(this._propertyStyles[property][value], style);
 
+    let tile;
     for (const tileKey in this._vectorTiles) {
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      const features = this._vectorTiles[tileKey].features;
-      for (const id in features) {
-        if (!features.hasOwnProperty(id)) {
-          continue;
-        }
-        const feature = features[id];
-        if (property in feature.geojson.properties
-            && feature.geojson.properties[property] === value) {
-          feature.layer.setStyle(style);
-        }
-      }
+      tile =  this._vectorTiles[tileKey];
+      tile.restyleByProperty(property, value, style);
     }
 
     return this;
@@ -684,31 +713,20 @@ L.VectorTiles = L.GridLayer.extend({
   },
 
   /**
-   * Returns the feature group that holds all features in the GridLayer
-   * intended for use with Leaflet.Draw
-   *
-   * @returns {L.FeatureGroup}
-   */
-  getFeatureGroup() {
-    return this._featureGroup;
-  },
-
-  /**
    * Returns a reference to the layer identified by the id
    *
    * @param {string} id
    * @returns {L.Path}
    */
   getLayer(id) {
+    let tile;
     for (const tileKey in this._vectorTiles) {
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      const features = this._vectorTiles[tileKey].features;
-      for (const featureId in features) {
-        if (featureId === id) {
-          return features[id].layer;
-        }
+      tile = this._vectorTiles[tileKey];
+      if (tile.contains(id)) {
+        return tile.getFeature(id).layer;
       }
     }
     return null;
@@ -721,15 +739,14 @@ L.VectorTiles = L.GridLayer.extend({
    * @return {Object}
    */
   getGeoJSON(id) {
+    let tile;
     for (const tileKey in this._vectorTiles) {
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      const features = this._vectorTiles[tileKey].features;
-      for (const featureId in features) {
-        if (featureId === id) {
-          return features[id].geojson;
-        }
+      tile = this._vectorTiles[tileKey];
+      if (tile.contains(id)) {
+        return tile.getFeature(id).geojson;
       }
     }
     return null;
@@ -743,23 +760,13 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns {L.VectorTiles} this
    */
   removeFeature(id) {
+    let tile;
     for (const tileKey in this._vectorTiles) {
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      const tile = this._vectorTiles[tileKey];
-      const features = tile.features;
-      for (const featureId in features) {
-        if (featureId === id) {
-          const feature = features[id];
-          // remove layer from feature group
-          tile.featureGroup.removeLayer(feature.layer);
-          // remove from tile index
-          tile.index.remove(feature.indexEntry);
-          // remove from feature list
-          delete features[id];
-        }
-      }
+      tile = this._vectorTiles[tileKey];
+      tile.removeFeature(id);
     }
     return this;
   },
