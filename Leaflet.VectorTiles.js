@@ -205,6 +205,7 @@ class Tile {
     this.featureGroup.removeLayer(feature.layer);
     this.index.remove(feature.indexEntry);
     delete this.features[id];
+    return this;
   }
 
   /**
