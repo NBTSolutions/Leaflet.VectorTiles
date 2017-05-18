@@ -2,7 +2,6 @@
 
 ### Table of Contents
 
--   [FontCanvas](#fontcanvas)
 -   [VectorTiles](#vectortiles)
 -   [initialize](#initialize)
 -   [search](#search)
@@ -10,26 +9,9 @@
 -   [showByProperty](#showbyproperty)
 -   [restyleByProperty](#restylebyproperty)
 -   [setFeatureStyle](#setfeaturestyle)
--   [resetFeatureStyle](#resetfeaturestyle)
--   [getFeatureGroup](#getfeaturegroup)
 -   [getLayer](#getlayer)
 -   [getGeoJSON](#getgeojson)
 -   [removeFeature](#removefeature)
-
-## FontCanvas
-
-**Extends Canvas**
-
-A canvas renderer that can draw fonts.
-Useful for icon fonts.
-
-**Examples**
-
-```javascript
-var map = L.map('map', {
-  renderer: new L.FontCanvas()
-});
-```
 
 ## VectorTiles
 
@@ -114,22 +96,6 @@ Change the style of a feature by its id
 -   `style` **[Object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)** 
 
 Returns **L.VectorTiles** this
-
-## resetFeatureStyle
-
-TODO.
-Revert a feature to its origin style.
-
-**Parameters**
-
--   `id` **[string](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)** 
-
-## getFeatureGroup
-
-Returns the feature group that holds all features in the GridLayer
-intended for use with Leaflet.Draw
-
-Returns **L.FeatureGroup** 
 
 ## getLayer
 
