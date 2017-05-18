@@ -12,7 +12,6 @@ export default class Tile {
     this.x = x;
     this.y = y;
     this.z = z;
-    //this.features = features;
     this.features = {};
 
     // is the tile on the map?
@@ -89,7 +88,6 @@ export default class Tile {
       bboxes.push(item);
     }
 
-    // bulk load all the features for this tile
     this.index.load(bboxes);
   }
 

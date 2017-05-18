@@ -45,23 +45,6 @@ L.VectorTiles = L.GridLayer.extend({
     // show tile boundaries
     this._debug = options.debug;
 
-    // pointers to individual layers
-    // this._vectorTiles = {
-    //   <tileKey>: {
-    //     loaded: <Boolean>,
-    //     features: {
-    //       <featureId>: {
-    //         geojson: <GeoJSON feature>,
-    //         layer: <Leaflet layer>,
-    //         indexEntry: <RBush index item>,
-    //       }
-    //     },
-    //     featureGroup: <L.FeatureGroup>,
-    //     index: <RBush>
-    //     loaded: <boolean>,
-    //     valid: <boolean>
-    //   }
-    // }
     this._vectorTiles = {};
 
     // property based style modifications
