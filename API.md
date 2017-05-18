@@ -9,7 +9,6 @@
 -   [showByProperty](#showbyproperty)
 -   [restyleByProperty](#restylebyproperty)
 -   [setFeatureStyle](#setfeaturestyle)
--   [resetFeatureStyle](#resetfeaturestyle)
 -   [getLayer](#getlayer)
 -   [getGeoJSON](#getgeojson)
 -   [removeFeature](#removefeature)
@@ -97,15 +96,6 @@ Change the style of a feature by its id
 -   `style` **[Object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)** 
 
 Returns **L.VectorTiles** this
-
-## resetFeatureStyle
-
-TODO.
-Revert a feature to its origin style.
-
-**Parameters**
-
--   `id` **[string](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)** 
 
 ## getLayer
 

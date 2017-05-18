@@ -388,26 +388,6 @@ L.VectorTiles = L.GridLayer.extend({
   },
 
   /**
-   * TODO.
-   * Revert a feature to its origin style.
-   *
-   * @param {string} id
-   */
-  resetFeatureStyle(id) {
-    delete this._featureStyles[id];
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      const features = this._vectorTiles[tileKey].features;
-      if (id in features) {
-        // const layer = features[id].layer;
-        // layer.resetStyle();
-      }
-    }
-  },
-
-  /**
    * Returns a reference to the layer identified by the id
    *
    * @param {string} id
