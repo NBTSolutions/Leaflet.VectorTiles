@@ -1,299 +1,5 @@
-/**
- * A canvas renderer that can draw fonts.
- * Useful for icon fonts.
- *
- * @class FontCanvas
- * @extends Canvas
- *
- * @example
- * var map = L.map('map', {
- *   renderer: new L.FontCanvas()
- * });
- */
-
-L.FontCanvas = L.Canvas.extend({
-  _updateCircle(layer) {
-    if (!this._drawing || layer._empty()) { return; }
-
-    const p = layer._point;
-    const ctx = this._ctx;
-    const r = layer._radius;
-    const s = (layer._radiusY || r) / r;
-
-    this._drawnLayers[layer._leaflet_id] = layer;
-
-    if (layer.options.content && layer.options.font) {
-      ctx.font = layer.options.font;
-      ctx.fillStyle = layer.options.color;
-      ctx.fillText(layer.options.content, p.x, p.y);
-    } else {
-      if (s !== 1) {
-        ctx.save();
-        ctx.scale(1, s);
-      }
-      ctx.beginPath();
-      ctx.arc(p.x, p.y / s, r, 0, Math.PI * 2, false);
-
-      if (s !== 1) {
-        ctx.restore();
-      }
-
-      this._fillStroke(ctx, layer);
-    }
-  }
-});
-
-
-/**
- * A feature object
- *
- * @class Feature
- * @private
- */
-class Feature {
-  constructor(id, geojson, layer) {
-    this.id = id;
-    this.geojson = geojson;
-    this.layer = layer;
-    this.onMap = true;
-    this.style = {};
-
-    // the following becomes a reference to this feature's
-    // index bbox when this feature is indexed by its tile
-    this.indexEntry = null;
-  }
-
-  /**
-   * @param {Object} style
-   * returns {Feature} this
-   */
-  setStyle(style) {
-    Object.assign(this.style, style);
-    this.layer.setStyle(this.style);
-    return this;
-  }
-
-  /**
-   * @param {boolean} on
-   * @returns {Feature} this
-   */
-  putOnMap(on) {
-    this.onMap = on;
-    return this;
-  }
-}
-
-
-/**
- * A tile object
- *
- * @class Tile
- * @private
- */
-class Tile {
-  constructor(x, y, z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    //this.features = features;
-    this.features = {};
-
-    // is the tile on the map?
-    this.valid = true;
-    this.loaded = false;
-
-    this.index = rbush();
-    this.featureGroup = L.featureGroup();
-  }
-
-  /**
-   * Call this method when all features have been added to the tile
-   *
-   * @returns {Tile} this
-   */
-  init() {
-    this.indexFeatures();
-    this.render();
-    return this;
-  }
-
-  /**
-   * TODO: consider doing this in the feature loop in VectorTiles#_createTile
-   */
-  render() {
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
-        continue;
-      }
-      const feature = this.features[id];
-      if (feature.onMap) {
-        this.featureGroup.addLayer(feature.layer);
-      }
-    }
-  }
-
-  /**
-   *
-   */
-  indexFeatures() {
-    const bboxes = [];
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
-        continue;
-      }
-      const feature = this.features[id];
-      const geom = feature.geojson.geometry;
-      const c = geom.coordinates;
-
-      let minX;
-      let minY;
-      let maxX;
-      let maxY;
-
-      if (geom.type === 'Point') {
-        minX = c[0];
-        maxX = c[0];
-        minY = c[1];
-        maxY = c[1];
-      } else {
-        [minX, minY, maxX, maxY] = turf.bbox(geom);
-      }
-
-      const item = {
-        minX,
-        minY,
-        maxX,
-        maxY,
-        id: feature.id
-      };
-
-      feature.indexEntry = item;
-
-      bboxes.push(item);
-    }
-
-    // bulk load all the features for this tile
-    this.index.load(bboxes);
-  }
-
-  /**
-   * @param {string} id
-   * @returns {boolean} true is this tile contains a feature with the given id
-   */
-  contains(id) {
-    return id in this.features;
-  }
-
-  /**
-   * @param {Feature} feature
-   * @returns {Tile} this
-   */
-  addFeature(feature) {
-    this.features[feature.id] = feature;
-    return this;
-  }
-
-  /**
-   * @param {string} id
-   * @returns {Tile} this
-   */
-  removeFeature(id) {
-    if (!this.contains(id)) {
-      return this;
-    }
-    const feature = this.getFeature(id);
-    this.featureGroup.removeLayer(feature.layer);
-    this.index.remove(feature.indexEntry);
-    delete this.features[id];
-    return this;
-  }
-
-  /**
-   * @param {string} id
-   * @returns {Feature}
-   */
-  getFeature(id) {
-    return this.features[id];
-  }
-
-  /**
-   * @param {number} minX
-   * @param {number} minY
-   * @param {number} maxX
-   * @param {number} maxY
-   * @returns {Array<String>} an array of feature ids of features that intersect
-   * the bounding box
-   */
-  search(minX, minY, maxX, maxY) {
-    return this.index.search({ minX, minY, maxX, maxY }).map(r => r.id);
-  }
-
-  /**
-   *
-   * @returns {Tile} this
-   */
-  markAsLoaded() {
-    this.loaded = true;
-    return this;
-  }
-
-  /**
-   * @param {string} property
-   * @param {string} value
-   * @param {boolean} on
-   * @param {boolead} toggled
-   * @returns {Tile} this
-   */
-  toggleByProperty(property, value, on, toggled) {
-    let feature;
-    let geoj;
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
-        continue;
-      }
-      feature = this.getFeature(id);
-      geoj = feature.geojson;
-      if (property in geoj.properties && geoj.properties[property] === value) {
-        if (toggled) {
-          if (on) {
-            this.index.insert(feature.indexEntry);
-            this.featureGroup.addLayer(feature.layer);
-          } else {
-            this.index.remove(feature.indexEntry);
-            this.featureGroup.removeLayer(feature.layer);
-          }
-        }
-      }
-    }
-    return this;
-  }
-
-  /**
-   * @param {string} property
-   * @param {string} value
-   * @param {Object} style
-   * @returns {Tile} this
-   */
-  restyleByProperty(property, value, style) {
-    let feature;
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
-        continue;
-      }
-      feature = this.getFeature(id);
-      if (property in feature.geojson.properties
-          && feature.geojson.properties[property] === value) {
-        feature.layer.setStyle(style);
-      }
-    }
-    return this;
-  }
-
-  /**
-   * Must call to delete this tile
-   */
-  delete() {}
-}
+import Tile from './tile';
+import Feature from './feature';
 
 /**
  * Manages interactive tiles of data
@@ -538,7 +244,6 @@ L.VectorTiles = L.GridLayer.extend({
               Object.assign(style, this._featureStyles[id]);
             }
 
-            //layer.setStyle(style);
             feature.setStyle(style);
 
             // feature based on map
@@ -664,7 +369,7 @@ L.VectorTiles = L.GridLayer.extend({
       if (!this._vectorTiles.hasOwnProperty(tileKey)) {
         continue;
       }
-      tile =  this._vectorTiles[tileKey];
+      tile = this._vectorTiles[tileKey];
       tile.restyleByProperty(property, value, style);
     }
 
@@ -787,6 +492,7 @@ L.VectorTiles = L.GridLayer.extend({
   _geojsonToLayer(feature) {
     let layer;
     let coords;
+    let ring;
     const c = feature.geometry.coordinates;
     switch (feature.geometry.type) {
       case 'Point':
@@ -807,9 +513,9 @@ L.VectorTiles = L.GridLayer.extend({
         coords = [];
         for (let i = 0; i < c.length; i++) {
           coords.push([]);
-          let ring = c[i];
+          ring = c[i];
           for (let j = 0; j < ring.length; j++) {
-            coords[i].push([ ring[j][1], ring[j][0] ]);
+            coords[i].push([ring[j][1], ring[j][0]]);
           }
         }
         layer = L.polygon(coords, {});
@@ -822,9 +528,9 @@ L.VectorTiles = L.GridLayer.extend({
           const polygon = c[i];
           for (let j = 0; j < polygon.length; j++) {
             coords[i].push([]);
-            let ring = polygon[j];
+            ring = polygon[j];
             for (let k = 0; k < ring.length; k++) {
-              coords[i][j].push([ ring[k][1], ring[k][0] ]);
+              coords[i][j].push([ring[k][1], ring[k][0]]);
             }
           }
         }

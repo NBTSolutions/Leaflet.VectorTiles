@@ -1,12 +1,14 @@
 # Leaflet.VectorTiles
 
-Render (GeoJSON) vector tiles on an [L.GridLayer][1] with an [L.Canvas][2] renderer
-
-This extension depends on Leaflet 1.0.3 or higher (note that it will work in Leaflet 1.0.0 but performance is very bad).
+Render (GeoJSON) vector tiles on an [L.GridLayer](http://leafletjs.com/reference-1.0.3.html#gridlayer) with an [L.Canvas](http://leafletjs.com/reference-1.0.3.html#canvas) renderer
 
 This extension also includes `L.FontCanvas` which extends `L.Canvas` with the capability of rendering fonts (useful for icon fonts).
 
 API documentation is in [API.md](API.md).
+
+## Dependencies
+
+- [Leaflet 1.0.3](http://leafletjs.com/) (note that it will work in Leaflet 1.0.0 but performance if very bad)
 
 ## Usage
 
@@ -64,6 +66,18 @@ and the keys in those objects correspond to values.
 
 ## Developing
 
+```
+npm run build
+```
+
+The above outputs a bundle named `leaflet.vector-tiles.js`
+
+```
+npm run build-dev
+```
+
+Outputs the bundle with a source map for easier debugging
+
 #### `createTiles()`
 
 Classes that extend `L.GridLayer` must override the `createTiles` method.
@@ -74,37 +88,9 @@ The `createTiles` method in `L.VectorTiles` is called per tile. It does the foll
 - Index all features in the tile
 - Render all features in the tile
 
-### State
+#### `Tile`
 
-#### `this._vectorTiles`
-
-Each active tile on the map has an entry in `this._vectorTiles`
-
-```
-this._vectorTiles = {
-	tileKey: {
-    	index: rbush(), // spatial index of all features in this tile
-        features: {
-        	featureId: {
-            	geojson: <GeoJSON feature>,
-                layer: <L.Layer>
-            },
-            ...
-        },
-        featureGroup: <L.FeatureGroup>, // holdes all layers in this tile
-        loaded: <Boolean>, // has this tile finished loading
-        valid: <Boolean> // is the tile still on the map (false if the tile has been unloaded)
-    }
-}
-```
-
-#### `this._propertyStyles`
-
-#### `this._propertyOnMap`
-
-#### `this._featureStyles`
-
-#### `this._featureOnMap`
+The `Tile` class manages all features
 
 ### Quirks
 
@@ -112,6 +98,7 @@ this._vectorTiles = {
 
 Performance is in very bad in Leaflet 1.0.0. It is much better in Leaflet 1.0.3.
 
-[1]: http://leafletjs.com/reference-1.0.3.html#gridlayer
-[2]: http://leafletjs.com/reference-1.0.3.html#canvas
+##### Performance
+
+`tileunload` doesn't fire on pan so old tiles stick around as you pan around
 
