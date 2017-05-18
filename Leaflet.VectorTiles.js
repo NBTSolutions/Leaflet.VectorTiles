@@ -104,17 +104,6 @@ L.VectorTiles = L.GridLayer.extend({
         this.destroyTile(e.coords);
       }
     });
-
-    // are you currently zooming
-    this._zooming = false;
-
-    this._map.on('zoomstart', () => {
-      this._zooming = true;
-    });
-
-    this._map.on('zoomend', () => {
-      this._zooming = false;
-    });
   },
 
   /**

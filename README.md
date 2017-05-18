@@ -78,27 +78,22 @@ npm run build-dev
 
 Outputs the bundle with a source map for easier debugging
 
-#### `createTiles()`
-
-Classes that extend `L.GridLayer` must override the `createTiles` method.
-
-The `createTiles` method in `L.VectorTiles` is called per tile. It does the following:
-- Fetch the data for that tile from the tile service
-- Create the data structure that represents each tile (`this._vectorTiles`)
-- Index all features in the tile
-- Render all features in the tile
-
-#### `Tile`
-
-The `Tile` class manages all features
-
 ### Quirks
 
 ##### Performance
 
 Performance is in very bad in Leaflet 1.0.0. It is much better in Leaflet 1.0.3.
 
-##### Performance
+##### Panning
 
 `tileunload` doesn't fire on pan so old tiles stick around as you pan around
 
+##### Leaflet.FontCanvas
+
+The FontCanvas class acutally doesn't have anything to do with this library.
+It should be removed and implemented as a separate extension.
+
+### TODO
+
+On zoom and pan every tile is reloaded and rerendered even though tiles almost never change.
+Figure out how to reuse tiles across zoom levels.
