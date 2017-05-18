@@ -296,7 +296,7 @@ L.VectorTiles = L.GridLayer.extend({
     //     valid: <boolean>
     //   }
     // }
-    this._vectorTiles = window.vectorTiles = {};
+    this._vectorTiles = {};
 
     // property based style modifications
     // for highlighting and junk
@@ -779,22 +779,47 @@ L.VectorTiles = L.GridLayer.extend({
   _geojsonToLayer(feature) {
     let layer;
     let coords;
+    const c = feature.geometry.coordinates;
     switch (feature.geometry.type) {
       case 'Point':
-        coords = feature.geometry.coordinates;
-        layer = L.circle([coords[1], coords[0]], {
+        layer = L.circle([c[1], c[0]], {
           radius: 40
         });
         break;
 
       case 'LineString':
-        coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+        coords = [];
+        for (let i = 0; i < c.length; i++) {
+          coords.push([c[i][1], c[i][0]]);
+        }
         layer = L.polyline(coords, {});
         break;
 
       case 'Polygon':
+        coords = [];
+        for (let i = 0; i < c.length; i++) {
+          coords.push([]);
+          let ring = c[i];
+          for (let j = 0; j < ring.length; j++) {
+            coords[i].push([ ring[j][1], ring[j][0] ]);
+          }
+        }
+        layer = L.polygon(coords, {});
+        break;
+
       case 'MultiPolygon':
-        coords = feature.geometry.coordinates.map(ring => ring.map(c => [c[1], c[0]]));
+        coords = [];
+        for (let i = 0; i < c.length; i++) {
+          coords.push([]);
+          const polygon = c[i];
+          for (let j = 0; j < polygon.length; j++) {
+            coords[i].push([]);
+            let ring = polygon[j];
+            for (let k = 0; k < ring.length; k++) {
+              coords[i][j].push([ ring[k][1], ring[k][0] ]);
+            }
+          }
+        }
         layer = L.polygon(coords, {});
         break;
 
