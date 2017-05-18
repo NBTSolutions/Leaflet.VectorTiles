@@ -86,7 +86,7 @@ Performance is in very bad in Leaflet 1.0.0. It is much better in Leaflet 1.0.3.
 
 ##### Panning
 
-`tileunload` doesn't fire on pan so old tiles stick around as you pan around
+`tileunload` doesn't fire on pan so old tiles stick around as you pan around.
 
 ##### Leaflet.FontCanvas
 
