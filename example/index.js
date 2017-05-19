@@ -14,9 +14,18 @@
 
   const url = '/{z}/{x}/{y}';
 
-  var vtLayer = new L.VectorTiles(url, {
+  const vtLayer = new L.VectorTiles(url, {
     map,
     getFeatureId: f => f.id,
     style: {}
   }).addTo(map);
+
+  map.on('click', e => {
+    const buf = .00001;
+    const { lat, lng } = e.latlng;
+    vtLayer.search(
+      L.latLng({ lat: lat - buf, lng: lng - buf }),
+      L.latLng({ lat: lat + buf, lng: lng + buf })
+    ).forEach(id => vtLayer.setFeatureStyle(id, { color: 'red' }));
+  });
 })();
