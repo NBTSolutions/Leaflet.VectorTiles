@@ -78,6 +78,20 @@ npm run build-dev
 
 Outputs the bundle with a source map for easier debugging
 
+#### Tiles
+
+As is, for each tile, the library expects the tile server to respond with an array like:
+
+```js
+[
+  {
+    layer: <string>, // layer name
+    features: <GeoJSON FeatureCollection> // features in this layer
+  },
+  ...
+]
+```
+
 ### Quirks
 
 ##### Performance
@@ -99,5 +113,9 @@ It should be removed and implemented as a separate extension.
 
 ### TODO
 
-On zoom and pan every tile is reloaded and rerendered even though tiles almost never change.
+- Styling by layer
+
+- On zoom and pan every tile is reloaded and rerendered even though tiles almost never change.
 Figure out how to reuse tiles across zoom levels.
+
+- Use [Mapbox Vector Tiles](https://www.mapbox.com/vector-tiles/)
