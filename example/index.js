@@ -16,7 +16,7 @@
 
   var vtLayer = new L.VectorTiles(url, {
     map,
-    getFeatureId() {},
+    getFeatureId: f => f.id,
     style: {}
   }).addTo(map);
 })();
