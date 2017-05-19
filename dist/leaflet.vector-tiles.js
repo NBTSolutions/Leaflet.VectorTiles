@@ -56,23 +56,6 @@ L.VectorTiles = L.GridLayer.extend({
     // show tile boundaries
     this._debug = options.debug;
 
-    // pointers to individual layers
-    // this._vectorTiles = {
-    //   <tileKey>: {
-    //     loaded: <Boolean>,
-    //     features: {
-    //       <featureId>: {
-    //         geojson: <GeoJSON feature>,
-    //         layer: <Leaflet layer>,
-    //         indexEntry: <RBush index item>,
-    //       }
-    //     },
-    //     featureGroup: <L.FeatureGroup>,
-    //     index: <RBush>
-    //     loaded: <boolean>,
-    //     valid: <boolean>
-    //   }
-    // }
     this._vectorTiles = {};
 
     // property based style modifications
@@ -114,17 +97,6 @@ L.VectorTiles = L.GridLayer.extend({
       } else {
         _this.destroyTile(e.coords);
       }
-    });
-
-    // are you currently zooming
-    this._zooming = false;
-
-    this._map.on('zoomstart', function () {
-      _this._zooming = true;
-    });
-
-    this._map.on('zoomend', function () {
-      _this._zooming = false;
     });
   },
 
@@ -434,27 +406,6 @@ L.VectorTiles = L.GridLayer.extend({
       }
     }
     return this;
-  },
-
-
-  /**
-   * TODO.
-   * Revert a feature to its origin style.
-   *
-   * @param {string} id
-   */
-  resetFeatureStyle: function resetFeatureStyle(id) {
-    delete this._featureStyles[id];
-    for (var tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      var features = this._vectorTiles[tileKey].features;
-      if (id in features) {
-        // const layer = features[id].layer;
-        // layer.resetStyle();
-      }
-    }
   },
 
 
@@ -2188,7 +2139,6 @@ var Tile = function () {
     this.x = x;
     this.y = y;
     this.z = z;
-    //this.features = features;
     this.features = {};
 
     // is the tile on the map?
@@ -2282,7 +2232,6 @@ var Tile = function () {
         bboxes.push(item);
       }
 
-      // bulk load all the features for this tile
       this.index.load(bboxes);
     }
 
