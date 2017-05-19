@@ -78,11 +78,18 @@ npm run build-dev
 
 Outputs the bundle with a source map for easier debugging
 
-To run the example app
+To run the example app, start the development server:
 
 ```
-npm start       # to start the development server
-npm run example # to start the example app
+npm start
+```
+
+Now do:
+
+```
+cd example
+npm install
+npm start
 ```
 
 and then point your browser to `http://localhost:12345`
