@@ -77,10 +77,23 @@ L.VectorTiles = L.GridLayer.extend({
 
     // listen for tileunload event and clean up old features
     this.on('tileunload', (e) => {
+      // Leaflet will not call createTile for tiles with negative
+      // coordinates but it will fire unload on them so
+      // ignore those events
+      if (e.coords.x < 0 || e.coords.y < 0 || e.coords.z < 0) {
+        return;
+      }
+
       const tileKey = this._tileCoordsToKey(e.coords);
 
+      // TODO: figure out why we're unloading tiles we never loaded
+      if (!(tileKey in this._vectorTiles)) {
+        console.log('unloading tile that was never loaded:', tileKey);
+        return;
+      }
+
       // if the tile hasn't loaded yet wait until it loads to destroy it
-      if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
+      if (!this._vectorTiles[tileKey].loaded) {
         // invalidate the tile so that it is deleted when its done loading
         this._vectorTiles[tileKey].valid = false;
       } else {
@@ -146,10 +159,6 @@ L.VectorTiles = L.GridLayer.extend({
   _createTile(coords) {
     const tileKey = this._tileCoordsToKey(coords);
 
-    // the following flag is set when tile rendering bails early
-    // because we've zoomed past this tile for example
-    let cancelled = false;
-
     const tile = new Tile(coords.x, coords.y, coords.z);
     this._vectorTiles[tileKey] = tile;
 
@@ -159,18 +168,13 @@ L.VectorTiles = L.GridLayer.extend({
       .then(res => res.json())
       .then((layers) => {
         for (let i = 0; i < layers.length; i++) {
-          // break out if we're already past this zoom level
-          // before we're done loading the tile
-          // TODO: better cancellation condition
-          if (coords.z !== this._map.getZoom()) {
-            cancelled = true;
+          // break out if this tile has already be unloaded
+          if (!tile.valid) {
             break;
           }
           for (let j = 0; j < layers[i].features.features.length; j++) {
-            // break out if we're already past this zoom level
-            // before we're done loading the tile
-            if (coords.z !== this._map.getZoom()) {
-              cancelled = true;
+            // break out if this tile has already be unloaded
+            if (!tile.valid) {
               break;
             }
 
@@ -227,7 +231,7 @@ L.VectorTiles = L.GridLayer.extend({
           }
         }
 
-        if (!cancelled) {
+        if (tile.valid) {
           // called when all features have been added to the tile
           tile.init();
 
