@@ -78,6 +78,36 @@ npm run build-dev
 
 Outputs the bundle with a source map for easier debugging
 
+To run the example app, start the development server:
+
+```
+npm start
+```
+
+Now do:
+
+```
+cd example
+npm install
+npm start
+```
+
+and then point your browser to `http://localhost:12345`
+
+#### Tiles
+
+As is, for each tile, the library expects the tile server to respond with an array like:
+
+```js
+[
+  {
+    layer: <string>, // layer name
+    features: <GeoJSON FeatureCollection> // features in this layer
+  },
+  ...
+]
+```
+
 ### Quirks
 
 ##### Performance
@@ -88,6 +118,10 @@ Performance is in very bad in Leaflet 1.0.0. It is much better in Leaflet 1.0.3.
 
 `tileunload` doesn't fire on pan so old tiles stick around as you pan around.
 
+##### `tileunload`
+
+`tileunload` will fire for tiles that were never created. Needs investigation.
+
 ##### Leaflet.FontCanvas
 
 The FontCanvas class acutally doesn't have anything to do with this library.
@@ -95,5 +129,9 @@ It should be removed and implemented as a separate extension.
 
 ### TODO
 
-On zoom and pan every tile is reloaded and rerendered even though tiles almost never change.
+- Styling by layer
+
+- On zoom and pan every tile is reloaded and rerendered even though tiles almost never change.
 Figure out how to reuse tiles across zoom levels.
+
+- Use [Mapbox Vector Tiles](https://www.mapbox.com/vector-tiles/)
