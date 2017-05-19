@@ -1,5 +1,5 @@
 /**
- *
+ * Example GeoJSON tile example
  */
 const fs = require('fs');
 const cors = require('cors');
@@ -10,6 +10,7 @@ const SphericalMercator = require('sphericalmercator');
 const featureCollection = require('@turf/helpers').featureCollection;
 
 const app = express();
+app.use(express.static('.'))
 app.use(cors());
 
 const PORT = 12345;
@@ -19,9 +20,9 @@ const mercator = new SphericalMercator({ size: 256 });
 // load features from file
 const geoj = JSON.parse(fs.readFileSync('countries.geo.json'));
 
-// index features
 const tree = rbush();
 
+// index features
 var feature, bb;
 for (var i = 0; i < geoj.features.length; i++) {
   feature = geoj.features[i];
@@ -50,6 +51,6 @@ app.get('/:z/:x/:y', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vector tile server listening on port :${PORT}`);
+  console.log(`app listening on port :${PORT}`);
 });
 

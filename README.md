@@ -78,6 +78,15 @@ npm run build-dev
 
 Outputs the bundle with a source map for easier debugging
 
+To run the example app
+
+```
+npm start       # to start the development server
+npm run example # to start the example app
+```
+
+and then point your browser to `http://localhost:12345`
+
 #### Tiles
 
 As is, for each tile, the library expects the tile server to respond with an array like:
@@ -104,7 +113,7 @@ Performance is in very bad in Leaflet 1.0.0. It is much better in Leaflet 1.0.3.
 
 ##### `tileunload`
 
-`tileunload` will fire for tiles that were never created. Investigate
+`tileunload` will fire for tiles that were never created. Needs investigation.
 
 ##### Leaflet.FontCanvas
 

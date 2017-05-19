@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "budo Leaflet.VectorTiles.js --serve=dist/leaflet.vector-tiles.js --live -- -t [ babelify --presets [ es2015 ] ]",
+    "example": "(cd example && npm start)",
     "build": "./node_modules/.bin/browserify Leaflet.VectorTiles.js -o dist/leaflet.vector-tiles.js -t [ babelify --presets [ es2015 ] ]",
     "build-dev": "./node_modules/.bin/browserify leaflet.vector-tiles.js -o dist/leaflet.vector-tiles.js -t [ babelify --presets [ es2015 ] ] --debug",
     "build-docs": "./node_modules/.bin/documentation build Leaflet.VectorTiles.js -f md > API.md",

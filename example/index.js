@@ -12,7 +12,7 @@
 
   L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-  const url = 'http://localhost:12345/{z}/{x}/{y}';
+  const url = '/{z}/{x}/{y}';
 
   var vtLayer = new L.VectorTiles(url, {
     map,
