@@ -47,7 +47,11 @@ app.get('/:z/:x/:y', (req, res) => {
     maxX: tileBbox[2],
     maxY: tileBbox[3],
   }).map(r => r.feature);
-  res.send([{ layer: 'coutries', features: featureCollection(features) }]);
+  res.json([{ layer: 'coutries', features: featureCollection(features) }]);
+});
+
+app.get('/geojson', (req, res) => {
+  res.json(geoj);
 });
 
 app.listen(PORT, () => {
