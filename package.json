@@ -1,7 +1,7 @@
 {
   "name": "leaflet.vectortiles",
   "version": "0.0.1",
-  "description": "Render (GeoJSON) vector tiles on an [L.GridLayer][1] with an [L.Canvas][2] renderer",
+  "description": "Render vector tiles on an L.GridLayer with an L.Canvas renderer",
   "main": "Leaflet.VectorTiles.js",
   "directories": {
     "example": "example"
@@ -10,16 +10,16 @@
     "start": "budo Leaflet.VectorTiles.js --serve=dist/leaflet.vector-tiles.js --live -- -t [ babelify --presets [ es2015 ] ]",
     "example": "(cd example && npm start)",
     "build": "./node_modules/.bin/browserify Leaflet.VectorTiles.js -o dist/leaflet.vector-tiles.js -t [ babelify --presets [ es2015 ] ]",
-    "build-dev": "./node_modules/.bin/browserify leaflet.vector-tiles.js -o dist/leaflet.vector-tiles.js -t [ babelify --presets [ es2015 ] ] --debug",
+    "build-dev": "./node_modules/.bin/browserify Leaflet.VectorTiles.js -o dist/leaflet.vector-tiles.js -t [ babelify --presets [ es2015 ] ] --debug",
     "build-docs": "./node_modules/.bin/documentation build Leaflet.VectorTiles.js -f md > API.md",
-    "lint": "./node_modules/.bin/eslint Leaflet.VectorTiles.js tile.js feature.js Leaflet.FontCanvas.js",
+    "lint": "./node_modules/.bin/eslint Leaflet.VectorTiles.js tile.js feature.js Leaflet.FontCanvas.js tile_cache.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NBTSolutions/Leaflet.VectorTiles.git"
   },
-  "author": "",
+  "author": "Kelvin Abrokwa",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/NBTSolutions/Leaflet.VectorTiles/issues"
@@ -36,7 +36,9 @@
     "eslint-plugin-import": "^2.2.0"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^1.3.0",
     "@turf/bbox": "^4.3.0",
+    "pbf": "^3.0.5",
     "rbush": "^2.0.1"
   }
 }

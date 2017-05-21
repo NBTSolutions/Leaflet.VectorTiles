@@ -12,10 +12,9 @@ export default class Tile {
     this.x = x;
     this.y = y;
     this.z = z;
+    this.coords = { x, y, z };
     this.features = {};
 
-    // is the tile on the map?
-    this.valid = true;
     this.loaded = false;
 
     this.index = rbush();
@@ -88,12 +87,13 @@ export default class Tile {
       bboxes.push(item);
     }
 
+    // bulk insert into spatial index
     this.index.load(bboxes);
   }
 
   /**
    * @param {string} id
-   * @returns {boolean} true is this tile contains a feature with the given id
+   * @returns {boolean} true if this tile contains a feature with the given id
    */
   contains(id) {
     return id in this.features;
@@ -144,7 +144,6 @@ export default class Tile {
   }
 
   /**
-   *
    * @returns {Tile} this
    */
   markAsLoaded() {

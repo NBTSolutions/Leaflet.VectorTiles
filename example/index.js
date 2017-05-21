@@ -2,8 +2,7 @@
  *
  */
 
-
-fetch('/geojson')
+fetch('/geojson/country')
   .then(res => res.json())
   .then(main);
 
@@ -19,13 +18,14 @@ function main(geojson) {
     zoom: 2
   });
 
-  L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  //L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-  const url = '/{z}/{x}/{y}';
+  const url = '/{z}/{x}/{y}?pbf=true';
 
-  const vtLayer = new L.VectorTiles(url, {
+  const vtLayer = window.vtLayer = new L.VectorTiles(url, {
     getFeatureId: f => f.properties.name.toLowerCase(),
-    style: {}
+    style: {},
+    debug: true,
   }).addTo(map);
 
   var hoverHighlight = false;
@@ -41,7 +41,6 @@ function main(geojson) {
       L.latLng({ lat: lat - buf, lng: lng - buf }),
       L.latLng({ lat: lat + buf, lng: lng + buf })
     ).forEach(id => vtLayer.setFeatureStyle(id, { color: 'green' }));
-
   }
 
   document.getElementById('hover-radio').onclick = e => {
