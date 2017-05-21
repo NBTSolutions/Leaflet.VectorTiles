@@ -24,7 +24,6 @@ function main(geojson) {
   const url = '/{z}/{x}/{y}';
 
   const vtLayer = new L.VectorTiles(url, {
-    map,
     getFeatureId: f => f.properties.name.toLowerCase(),
     style: {}
   }).addTo(map);

@@ -22,9 +22,8 @@ L.VectorTiles = L.GridLayer.extend({
    * Constructor
    *
    * @constructs
-   * @param {string} url The url for fectching vector tiles
+   * @param {string} url The template url for fectching vector tiles
    * @param {Object} options
-   * @param {L.Map} [options.map]
    * @param {Function} [options.getFeatureId]
    * @param {boolean} [options.debug]
    * @param {Object} [options.style]
@@ -35,12 +34,8 @@ L.VectorTiles = L.GridLayer.extend({
 
     this._url = url;
 
-    // TODO: figure out how to do without this
-    this._map = options.map;
-
     // the FeatureGroup that holds per tile FeatureGroups
-    this._featureGroup = L.featureGroup()
-      .addTo(this._map);
+    this._featureGroup = L.featureGroup();
 
     // show tile boundaries
     this._debug = options.debug;
@@ -100,6 +95,12 @@ L.VectorTiles = L.GridLayer.extend({
         this.destroyTile(e.coords);
       }
     });
+  },
+
+  onAdd(map) {
+    L.GridLayer.prototype.onAdd.call(this, map);
+    this._map = map;
+    this._featureGroup.addTo(this._map);
   },
 
   /**

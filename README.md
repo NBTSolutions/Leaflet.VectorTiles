@@ -35,7 +35,6 @@ var vtLayer = new L.VectorTiles(url, {
   getFeatureId: function(feature) {
     return feature.properties.id;
   },
-  map: map,
   debug: true, // to show tile boundaries
   style: {
     treeType: {
