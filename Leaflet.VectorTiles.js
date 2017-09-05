@@ -1,5 +1,24 @@
 import Tile from './tile';
 import Feature from './feature';
+import { VectorTile } from '@mapbox/vector-tile';
+import Pbf from 'pbf';
+
+
+/**
+ * Ensure that the tile is within the normal range
+ */
+function tileIsValid(coords) {
+  if (coords.x < 0 || coords.y < 0 || coords.z < 0) {
+    return false;
+  }
+  const nTiles = Math.pow(4, coords.z);
+  const maxIndex = Math.sqrt(nTiles) - 1;
+  if (coords.x > maxIndex || coords.y > maxIndex) {
+    return false;
+  }
+  return true;
+}
+
 
 /**
  * Manages interactive tiles of data
@@ -9,11 +28,16 @@ import Feature from './feature';
  *
  * @example
  * var vtLayer = new L.VectorTiles('http://mytiles.com/{z}/{x}/{y}.pbf', {
- *   map: map,
- *   debug: true
+ *   debug: true,
+ *   style: {
+ *     property: {
+ *       value: {
+ *         color: 'red'
+ *       }
+ *     }
+ *   }
  * }).addTo(map);
  */
-
 L.VectorTiles = L.GridLayer.extend({
 
   style: {},
@@ -37,13 +61,15 @@ L.VectorTiles = L.GridLayer.extend({
     // the FeatureGroup that holds per tile FeatureGroups
     this._featureGroup = L.featureGroup();
 
-    // show tile boundaries
+    // show tile boundaries and log tile loading and unloading
     this._debug = options.debug;
 
+    // store Tile objects representing vector tiles
+    // keyed on tileKeys
     this._vectorTiles = {};
 
-    // property based style modifications
-    // for highlighting and junk
+    // a lookup table for property value based styling
+    // maps property names to values to style objects
     // this._propertyStyles = {
     //   propertyName: {
     //     value1: { L.Path style options }
@@ -51,47 +77,51 @@ L.VectorTiles = L.GridLayer.extend({
     // }
     this._propertyStyles = {};
 
-    // property based toggling
+    // a lookup table for whether or not features with property values are on the map
+    // maps property names to values to booleans
     this._propertyOnMap = {};
 
-    // track individual feature style modifications
+    // a lookup table for individual feature styles
+    // maps feaure ids to style objects
     this._featureStyles = {};
 
-    // mark individual features as on or off the map
+    // a lookup table for whether or not individual features are on the map
+    // maps feature ids to booleans
     this._featureOnMap = {};
+
+    // mark a tile for destruction in case it is unloaded before it loads
+    this._toDestroy = {};
 
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
     // we need to wait for it to finish loading before we can clean up
     this.on('vt_tileload', (e) => {
       const tileKey = this._tileCoordsToKey(e.coords);
-      if (!this._vectorTiles[tileKey].valid) {
+      if (this._toDestroy[tileKey]) {
         this.destroyTile(e.coords);
       }
     });
 
     // listen for tileunload event and clean up old features
     this.on('tileunload', (e) => {
-      // Leaflet will not call createTile for tiles with negative
-      // coordinates but it will fire unload on them so
-      // ignore those events
-      if (e.coords.x < 0 || e.coords.y < 0 || e.coords.z < 0) {
+      // Leaflet will not call createTile on invalid tile coordinates but it will fire
+      // tileunload on it. Ignore these.
+      if (!tileIsValid(e.coords)) {
         return;
       }
 
       const tileKey = this._tileCoordsToKey(e.coords);
 
-      // TODO: figure out why we're unloading tiles we never loaded
-      if (!(tileKey in this._vectorTiles)) {
-        console.log('unloading tile that was never loaded:', tileKey);
-        return;
-      }
-
-      // if the tile hasn't loaded yet wait until it loads to destroy it
-      if (!this._vectorTiles[tileKey].loaded) {
+      // if the tile hasn't loaded yet, mark it for deletion for when it
+      // is finished loading
+      if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
         // invalidate the tile so that it is deleted when its done loading
-        this._vectorTiles[tileKey].valid = false;
+        if (this._debug) {
+          console.log('marking tile', e.coords, 'for deletion after loading');
+        }
+        this._toDestroy[tileKey] = true;
       } else {
+        // destroy it immediately
         this.destroyTile(e.coords);
       }
     });
@@ -147,6 +177,9 @@ L.VectorTiles = L.GridLayer.extend({
    * @private
    */
   createTile(coords, done) {
+    if (this._debug) {
+      console.log("creating tile:", coords);
+    }
     const tile = L.DomUtil.create('div', 'leaflet-tile');
     if (this.options.debug) {
       // show tile boundaries
@@ -160,26 +193,51 @@ L.VectorTiles = L.GridLayer.extend({
   _createTile(coords) {
     const tileKey = this._tileCoordsToKey(coords);
 
+    // tile has already been unloaded
+    if (this._toDestroy[tileKey]) {
+      return;
+    }
+
     const tile = new Tile(coords.x, coords.y, coords.z);
     this._vectorTiles[tileKey] = tile;
 
     // fetch vector tile data for this tile
     const url = L.Util.template(this._url, coords);
     fetch(url)
-      .then(res => res.json())
-      .then((layers) => {
-        for (let i = 0; i < layers.length; i++) {
+      .then(res => res.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        return new Promise((resolve, reject) => {
+          reader.onloadend = () => {
+            resolve(new VectorTile(new Pbf(reader.result)));
+          }
+          reader.readAsArrayBuffer(blob);
+        });
+      })
+      .then(vtTile => {
+        for (const vtLayerName in vtTile.layers) {
           // break out if this tile has already be unloaded
-          if (!tile.valid) {
+          if (this._toDestroy[tileKey]) {
+            if (this._debug) {
+              console.log('Tile', coords, 'stopped while loading');
+            }
             break;
           }
-          for (let j = 0; j < layers[i].features.features.length; j++) {
+
+          const vtLayer = vtTile.layers[vtLayerName];
+
+          for (let j = 0; j < vtLayer.length; j++) {
             // break out if this tile has already be unloaded
-            if (!tile.valid) {
+            if (this._toDestroy[tileKey]) {
+              if (this._debug) {
+                console.log('Tile', coords, 'stopped while loading');
+              }
               break;
             }
 
-            const geojson = layers[i].features.features[j];
+            const vtFeature = vtLayer.feature(j);
+
+            const geojson = vtFeature.toGeoJSON(coords.x, coords.y, coords.z);
             const id = this.options.getFeatureId(geojson);
             const layer = this._geojsonToLayer(geojson);
             if (!layer) {
@@ -187,10 +245,13 @@ L.VectorTiles = L.GridLayer.extend({
               continue;
             }
 
+            // create the Feature
             const feature = new Feature(id, geojson, layer);
 
+            // add it to the tile
             tile.addFeature(feature);
 
+            // calculate its style and if its visible
             const style = {};
             let onMap = true;
             let prop;
@@ -232,7 +293,7 @@ L.VectorTiles = L.GridLayer.extend({
           }
         }
 
-        if (tile.valid) {
+        if (!this._toDestroy[tileKey]) {
           // called when all features have been added to the tile
           tile.init();
 
@@ -243,10 +304,17 @@ L.VectorTiles = L.GridLayer.extend({
         // mark tile as loaded
         tile.markAsLoaded();
 
+        if (this._debug) {
+          console.log('tile', coords, 'loaded');
+        }
+
         // the tile has ~actually~ loaded
         // the `tileload` event doesn't fire when `tileunload` fires first
         // but in our case we still need to be finished loading to clean up
         this.fire('vt_tileload', { coords });
+      })
+      .catch(err => {
+        console.log(err);
       });
   },
 
@@ -258,6 +326,9 @@ L.VectorTiles = L.GridLayer.extend({
    * @private
    */
   destroyTile(coords) {
+    if (this._debug) {
+      console.log("destroying tile:", coords);
+    }
     const tileKey = this._tileCoordsToKey(coords);
 
     // remove this tile's FeatureGroup from the map
@@ -265,6 +336,11 @@ L.VectorTiles = L.GridLayer.extend({
 
     // delete the tile's data
     delete this._vectorTiles[tileKey];
+
+    // remove delete marker
+    if (this._toDestroy[tileKey]) {
+      delete this._toDestroy[tileKey];
+    }
   },
 
   /**
@@ -442,7 +518,6 @@ L.VectorTiles = L.GridLayer.extend({
    * Here we must make lon,lat (GeoJSON) into lat,lon (Leaflet)
    *
    * @param {Object} feature
-   * @param {string} id
    * @returns {L.Path}
    * @private
    */
@@ -500,7 +575,7 @@ L.VectorTiles = L.GridLayer.extend({
     }
 
     return layer;
-  }
+  },
 
 });
 

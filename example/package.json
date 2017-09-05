@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node vt_server.js"
+    "start": "./node_modules/nodemon/bin/nodemon.js vt_server.js",
+    "create-data": "./create_data.sh"
   },
   "author": "",
   "license": "ISC",
@@ -13,7 +14,13 @@
     "@turf/helpers": "^4.3.0",
     "cors": "^2.8.3",
     "express": "^4.15.3",
+    "geojson-vt": "^2.4.0",
     "rbush": "^2.0.1",
-    "sphericalmercator": "^1.0.5"
+    "sphericalmercator": "^1.0.5",
+    "vt-pbf": "^2.1.2"
+  },
+  "devDependencies": {
+    "geojson-random": "^0.4.0",
+    "nodemon": "^1.11.0"
   }
 }
