@@ -117,10 +117,6 @@ Performance is in very bad in Leaflet 1.0.0. It is much better in Leaflet 1.0.3.
 
 `tileunload` doesn't fire on pan so old tiles stick around as you pan around.
 
-##### `tileunload`
-
-`tileunload` will fire for tiles that were never created. Needs investigation.
-
 ##### Leaflet.FontCanvas
 
 The FontCanvas class acutally doesn't have anything to do with this library.
