@@ -128,5 +128,3 @@ It should be removed and implemented as a separate extension.
 
 - On zoom and pan every tile is reloaded and rerendered even though tiles almost never change.
 Figure out how to reuse tiles across zoom levels.
-
-- Use [Mapbox Vector Tiles](https://www.mapbox.com/vector-tiles/)
