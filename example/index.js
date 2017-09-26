@@ -15,7 +15,8 @@ function main(geojson) {
       lat: 0,
       lng: 0
     },
-    zoom: 2
+    zoom: 2,
+    preferCanvas: true,
   });
 
   //L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
