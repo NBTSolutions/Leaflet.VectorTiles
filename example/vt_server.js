@@ -44,11 +44,14 @@ const pointTileIndex = geojsonvt(pointGeoj, {
 const emptyFeatCollection = featureCollection([]);
 
 app.get('/:z/:x/:y', (req, res) => {
+  if (req.get('If-Modified-Since')) {
+    return res.status(304).send();
+  }
   const [x, y, z] = [+req.params.x, +req.params.y, +req.params.z];
   const countries = countryTileIndex.getTile(z, x, y) || emptyFeatCollection;
   const points = pointTileIndex.getTile(z, x, y) || emptyFeatCollection;
   const buff = vtpbf.fromGeojsonVt({ countries, points });
-  res.send(buff);
+  res.status(200).send(buff);
 });
 
 app.get('/geojson/:type', (req, res) => {

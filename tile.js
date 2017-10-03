@@ -8,55 +8,47 @@ import bbox from '@turf/bbox';
  * @private
  */
 export default class Tile {
+
+  /**
+   * Constructor
+   *
+   * param {number} x - x coordinate of tile
+   * param {number} y - y coordinate of tile
+   * param {number} z - z coordinate of tile
+   */
   constructor(x, y, z) {
     this.x = x;
     this.y = y;
     this.z = z;
     this.coords = { x, y, z };
-    this.features = {};
+    this._features = {};
 
     this.loaded = false;
 
-    this.index = rbush();
+    this._index = rbush();
     this.featureGroup = L.featureGroup();
   }
 
   /**
-   * Call this method when all features have been added to the tile
+   * We call this method when all features have been added to the tile
    *
    * @returns {Tile} this
    */
   init() {
     this.indexFeatures();
-    this.render();
     return this;
   }
 
   /**
-   *
-   */
-  render() {
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
-        continue;
-      }
-      const feature = this.features[id];
-      if (feature.onMap) {
-        this.featureGroup.addLayer(feature.layer);
-      }
-    }
-  }
-
-  /**
-   *
+   * This method adds all features in this tile to an rbush index
    */
   indexFeatures() {
     const bboxes = [];
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
+    for (const id in this._features) {
+      if (!this._features.hasOwnProperty(id)) {
         continue;
       }
-      const feature = this.features[id];
+      const feature = this._features[id];
       const geom = feature.geojson.geometry;
       const c = geom.coordinates;
 
@@ -88,7 +80,7 @@ export default class Tile {
     }
 
     // bulk insert into spatial index
-    this.index.load(bboxes);
+    this._index.load(bboxes);
   }
 
   /**
@@ -96,7 +88,7 @@ export default class Tile {
    * @returns {boolean} true if this tile contains a feature with the given id
    */
   contains(id) {
-    return id in this.features;
+    return id in this._features;
   }
 
   /**
@@ -104,7 +96,8 @@ export default class Tile {
    * @returns {Tile} this
    */
   addFeature(feature) {
-    this.features[feature.id] = feature;
+    this._features[feature.id] = feature;
+    this.featureGroup.addLayer(feature.layer);
     return this;
   }
 
@@ -118,8 +111,8 @@ export default class Tile {
     }
     const feature = this.getFeature(id);
     this.featureGroup.removeLayer(feature.layer);
-    this.index.remove(feature.indexEntry);
-    delete this.features[id];
+    this._index.remove(feature.indexEntry);
+    delete this._features[id];
     return this;
   }
 
@@ -128,7 +121,30 @@ export default class Tile {
    * @returns {Feature}
    */
   getFeature(id) {
-    return this.features[id];
+    return this._features[id];
+  }
+
+  /**
+   * This method adds this tile to the given layer by calling `addLayer` with the
+   * tile's underlying FeatureGroup
+   *
+   * @param {L.Map|L.FeatureGroup|L.LayerGroup}
+   * @returns {Tile} this
+   */
+  addTo(layer) {
+    layer.addLayer(this.featureGroup);
+    return this;
+  }
+
+  /**
+   * This method removes this tile from the given layer by calling `removeLayer` with
+   * the tile's underlying FeatureGroup
+   *
+   * @param {L.Map|L.FeatureGroup|L.LayerGroup}
+   * @returns {Tile} this
+   */
+  removeFrom(layer) {
+    layer.removeLayer(this.featureGroup);
   }
 
   /**
@@ -140,10 +156,12 @@ export default class Tile {
    * the bounding box
    */
   search(minX, minY, maxX, maxY) {
-    return this.index.search({ minX, minY, maxX, maxY }).map(r => r.id);
+    return this._index.search({ minX, minY, maxX, maxY }).map(r => r.id);
   }
 
   /**
+   * Marks the tile as loaded
+   *
    * @returns {Tile} this
    */
   markAsLoaded() {
@@ -161,8 +179,8 @@ export default class Tile {
   toggleByProperty(property, value, on, toggled) {
     let feature;
     let geoj;
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
+    for (const id in this._features) {
+      if (!this._features.hasOwnProperty(id)) {
         continue;
       }
       feature = this.getFeature(id);
@@ -170,10 +188,10 @@ export default class Tile {
       if (property in geoj.properties && geoj.properties[property] === value) {
         if (toggled) {
           if (on) {
-            this.index.insert(feature.indexEntry);
+            this._index.insert(feature.indexEntry);
             this.featureGroup.addLayer(feature.layer);
           } else {
-            this.index.remove(feature.indexEntry);
+            this._index.remove(feature.indexEntry);
             this.featureGroup.removeLayer(feature.layer);
           }
         }
@@ -190,8 +208,8 @@ export default class Tile {
    */
   restyleByProperty(property, value, style) {
     let feature;
-    for (const id in this.features) {
-      if (!this.features.hasOwnProperty(id)) {
+    for (const id in this._features) {
+      if (!this._features.hasOwnProperty(id)) {
         continue;
       }
       feature = this.getFeature(id);
