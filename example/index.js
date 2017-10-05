@@ -63,4 +63,10 @@ function main(geojson) {
       .filter(c => c.indexOf(q) > -1)
       .forEach(id => vtLayer.setFeatureStyle(id, { color: 'black' }));
   };
+
+  document.getElementById('cache-size-button').onclick = e => {
+    console.log(e);
+    const size = +document.getElementById('cache-size').value;
+    vtLayer.setTileCacheSize(size);
+  };
 }

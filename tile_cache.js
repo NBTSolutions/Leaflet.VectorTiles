@@ -11,9 +11,9 @@
  */
 class Node {
   constructor(data) {
-    self.data = data;
-    self.prev = null;
-    self.next = null;
+    this.data = data;
+    this.prev = null;
+    this.next = null;
   }
 }
 
@@ -127,6 +127,10 @@ export default class TileCache {
       throw "Size cannot be a negative number";
     }
 
+    if (this._debug) {
+      console.log('tile cache:', 'changing cache size from', this._size, 'to', size);
+    }
+
     if (size >= this._size) {
       // we are increasing the size, no need to remove items from the cache
       this._size = size;
@@ -152,7 +156,11 @@ export default class TileCache {
 
     // collect the garbage
     while (garbage != null) {
-      delete this._cache[garbage.data.tileKey]; // delete from cache
+      let { tileKey } = garbage.data;
+      if (this._debug) {
+        console.log('tile cache:', 'removing tile', tileKey, 'due to cache resize');
+      }
+      delete this._cache[tileKey]; // delete from cache
       garbage = garbage.next;
     }
 
