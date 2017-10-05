@@ -93,7 +93,7 @@ export default class TileCache {
     }
 
     // place at heaad of order linked list
-    let node = new Node({ tile, tileKey });
+    let node = new Node({ tileKey });
     if (this._head) {
       this._head.prev = node;
     }
@@ -117,6 +117,47 @@ export default class TileCache {
       }
       delete this._cache[tailtileKey];
     }
+  }
+
+  /**
+   * @param {number} size
+   */
+  setSize(size) {
+    if (size < 0) {
+      throw "Size cannot be a negative number";
+    }
+
+    if (size >= this._size) {
+      // we are increasing the size, no need to remove items from the cache
+      this._size = size;
+      return;
+    }
+
+    if (this._head == null) {
+      // this cache is empty
+      return;
+    }
+
+    let node = this._head;
+    let garbage = node;
+    if (size > 0) {
+      let c = 1;
+      while (c < size && node.next != null) {
+        node = node.next;
+        c++;
+      }
+      garbage = node.next;
+      node.next = null;
+    }
+
+    // collect the garbage
+    while (garbage != null) {
+      delete this._cache[garbage.data.tileKey]; // delete from cache
+      garbage = garbage.next;
+    }
+
+    // when this function exits, there should be no more references to the garbage
+    // nodes in the linked list, so they will be garbage collected as usual
   }
 }
 

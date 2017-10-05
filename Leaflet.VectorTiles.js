@@ -548,6 +548,17 @@ L.VectorTiles = L.GridLayer.extend({
   },
 
   /**
+   * Set the maximum size of the cache
+   *
+   * @param {number} size
+   * returns {L.VectorTiles} this
+   */
+  setTileCacheSize(size) {
+    this._tileCache.setSize(size);
+    return this;
+  },
+
+  /**
    * Convert a GeoJSON feature into a Leaflet feature
    * Point -> L.Circle
    * LineString -> L.Polyline
