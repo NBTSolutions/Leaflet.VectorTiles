@@ -65,7 +65,6 @@ function main(geojson) {
   };
 
   document.getElementById('cache-size-button').onclick = e => {
-    console.log(e);
     const size = +document.getElementById('cache-size').value;
     vtLayer.setTileCacheSize(size);
   };

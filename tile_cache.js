@@ -78,6 +78,7 @@ export default class TileCache {
   put(tileKey, tile) {
     if (this._debug) {
       console.log('tile cache:', 'caching', tileKey);
+      console.log(this._stringifyList());
     }
 
     if (tileKey in this._cache) {
@@ -114,6 +115,7 @@ export default class TileCache {
       const tailtileKey = tailNode.data.tileKey;
       if (this._debug) {
         console.log('tile cache:', 'evicting', tileKey);
+        console.log(this._stringifyList());
       }
       delete this._cache[tailtileKey];
     }
@@ -159,6 +161,7 @@ export default class TileCache {
       let { tileKey } = garbage.data;
       if (this._debug) {
         console.log('tile cache:', 'removing tile', tileKey, 'due to cache resize');
+        console.log(this._stringifyList());
       }
       delete this._cache[tileKey]; // delete from cache
       garbage = garbage.next;
@@ -166,6 +169,19 @@ export default class TileCache {
 
     // when this function exits, there should be no more references to the garbage
     // nodes in the linked list, so they will be garbage collected as usual
+  }
+
+  /**
+   *
+   */
+  _stringifyList() {
+    let node = this._head;
+    let out = '';
+    while (node !== null) {
+      out += `(${node.data.tileKey}) -> `;
+      node = node.next;
+    }
+    return out;
   }
 }
 
