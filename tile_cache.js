@@ -44,7 +44,10 @@ export default class TileCache {
   }
 
   /**
+   * Retrieve an item from the cache
+   *
    * @param {string} tileKey
+   * @returns {Tile|null}
    */
   get(tileKey) {
     if (!(tileKey in this._cache)) {
@@ -139,6 +142,8 @@ export default class TileCache {
       return;
     }
 
+    this._size = size;
+
     if (this._head == null) {
       // this cache is empty
       return;
@@ -172,7 +177,10 @@ export default class TileCache {
   }
 
   /**
+   * Returns a string reprenting the current order of tiles in the cache
    *
+   * @returns {string}
+   * @private
    */
   _stringifyList() {
     let node = this._head;
