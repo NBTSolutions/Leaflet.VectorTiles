@@ -19,7 +19,10 @@
     search: <input id="search" type="text"/>
   </div>
   <div>
-    set cache size: <input id="cache-size" type="text"/><button id="cache-size-button">set</button>
+    <div>
+      set cache size: <input id="cache-size-input" type="range" min="0" max="150" value="50"/>
+    </div>
+    <div>cache size: <span id="cache-size">50</span></div>
   </div>
   <div id="map"></div>
   <script src="index.js"></script>

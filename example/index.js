@@ -64,8 +64,9 @@ function main(geojson) {
       .forEach(id => vtLayer.setFeatureStyle(id, { color: 'black' }));
   };
 
-  document.getElementById('cache-size-button').onclick = e => {
-    const size = +document.getElementById('cache-size').value;
-    vtLayer.setTileCacheSize(size);
+  document.getElementById('cache-size-input').onchange = e => {
+    const cacheSize = +e.target.value;
+    document.getElementById('cache-size').innerHTML = cacheSize;
+    vtLayer.setTileCacheSize(cacheSize);
   };
 }
