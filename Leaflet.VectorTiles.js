@@ -58,6 +58,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @param {Function} [options.getFeatureId]
    * @param {boolean} [options.debug]
    * @param {Object} [options.style]
+   * @param {string[]} [options.layerOrder]
    */
   initialize(url, options) {
     L.Util.setOptions(options);
@@ -244,7 +245,11 @@ L.VectorTiles = L.GridLayer.extend({
             });
           })
           .then(function parseVectorTile(vtTile) {
-            for (const vtLayerName in vtTile.layers) {
+            const vtLayerNames = Object.keys(vtTile.layers);
+            if (this.options.layerOrder) {
+              vtLayerNames.sort((a, b) => this.options.layerOrder.indexOf(a) > this.options.layerOrder.indexOf(b));
+            }
+            for (const vtLayerName of vtLayerNames) {
               // break out if this tile has already be unloaded
               if (this._toDestroy[tileKey]) {
                 if (this._debug) {

@@ -25,8 +25,19 @@ function main(geojson) {
 
   const vtLayer = window.vtLayer = new L.VectorTiles(url, {
     getFeatureId: f => f.properties.name.toLowerCase(),
-    style: {},
-    debug: true,
+    layerOrder: ['points', 'countries'], // order is bottom to top
+    style: {
+      type: {
+        point: {
+          color: 'green',
+        },
+        country: {
+          color: 'blue',
+          fillOpacity: 0.9
+        },
+      },
+    },
+    //debug: true,
   }).addTo(map);
 
   var hoverHighlight = false;
