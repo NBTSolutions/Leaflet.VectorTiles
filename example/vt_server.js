@@ -23,10 +23,17 @@ const mercator = new SphericalMercator({ size: 256 });
 const countryGeoj = JSON.parse(fs.readFileSync('countries.geojson'));
 const pointGeoj = JSON.parse(fs.readFileSync('points-10000.geojson'));
 
-// name the points so that we can id them
+// add type property for styling
+for (let i = 0; i < countryGeoj.features.length; i++) {
+  let country = countryGeoj.features[i];
+  country.properties.type = 'country';
+}
+
+// name the points so that we can id them and add type property for styling
 for (let i = 0; i < pointGeoj.features.length; i++) {
   let point = pointGeoj.features[i];
   point.properties.name = `${i}`;
+  point.properties.type = 'point';
 }
 
 // tile index for Vector Tiles
