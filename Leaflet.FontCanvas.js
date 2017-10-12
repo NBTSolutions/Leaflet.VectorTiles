@@ -25,6 +25,8 @@ L.FontCanvas = L.Canvas.extend({
     if (layer.options.content && layer.options.font) {
       ctx.font = layer.options.font;
       ctx.fillStyle = layer.options.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(layer.options.content, p.x, p.y);
     } else {
       if (s !== 1) {
