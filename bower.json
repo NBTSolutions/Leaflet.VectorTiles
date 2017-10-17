@@ -1,0 +1,22 @@
+{
+  "name": "leaflet-vectortiles",
+  "description": "Leaflet vector tile layer",
+  "main": "dist/leaflet.vector-tiles.js",
+  "authors": [
+    "Kelvin Abrokwa"
+  ],
+  "license": "ISC",
+  "keywords": [
+    "leaflet",
+    "vector",
+    "tiles"
+  ],
+  "homepage": "https://github.com/NBTSolutions/Leaflet.VectorTiles",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
