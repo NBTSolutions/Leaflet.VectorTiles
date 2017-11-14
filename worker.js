@@ -28,13 +28,14 @@ module.exports = function(self) {
  * GeoJSON features
  */
 function getFeatures(vectorTile, coords) {
-  const features = [];
+  const features = {};
   for (const layerName in vectorTile.layers) {
+    const l = features[layerName] = [];
     const layer = vectorTile.layers[layerName];
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
       const geojson = feature.toGeoJSON(coords.x, coords.y, coords.z);
-      features.push(geojson);
+      l.push(geojson);
     }
   }
   return features;

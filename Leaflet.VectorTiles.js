@@ -222,59 +222,67 @@ L.VectorTiles = L.GridLayer.extend({
     const tileKey = this._tileCoordsToKey(coords);
     const tile = this._vectorTiles[tileKey];
 
-    for (let geojson of features) {
-      const id = this.options.getFeatureId(geojson);
-      const layer = this._geojsonToLayer(geojson);
-      if (!layer) {
-        // unsupported geometry type
-        continue;
+    for (let layerName in features) {
+      if (tile.destroy) {
+        break;
       }
-
-      // create the Feature
-      const feature = new Feature(id, geojson, layer);
-
-      // add it to the tile
-      tile.addFeature(feature);
-
-      // calculate its style and if its visible
-      const style = {};
-      let onMap = true;
-      let prop;
-
-      // property based styles
-      for (prop in geojson.properties) {
-        // apply style from options
-        if (prop in this.options.style
-          && geojson.properties[prop] in this.options.style[prop]) {
-          Object.assign(style, this.options.style[prop][geojson.properties[prop]]);
+      for (let geojson of features[layerName]) {
+        if (tile.destroy) {
+          break;
+        }
+        const id = this.options.getFeatureId(geojson);
+        const leafletLayer = this._geojsonToLeafletLayer(geojson);
+        if (!leafletLayer) {
+          // unsupported geometry type
+          continue;
         }
 
-        // apply style modifications
-        if (prop in this._propertyStyles
-          && geojson.properties[prop] in this._propertyStyles[prop]) {
-          Object.assign(style, this._propertyStyles[prop][geojson.properties[prop]]);
+        // create the Feature
+        const feature = new Feature(id, layerName, geojson, leafletLayer);
+
+        // add it to the tile
+        tile.addFeature(feature);
+
+        // calculate its style and if its visible
+        const style = {};
+        let onMap = true;
+        let prop;
+
+        // property based styles
+        for (prop in geojson.properties) {
+          // apply style from options
+          if (prop in this.options.style
+            && geojson.properties[prop] in this.options.style[prop]) {
+            Object.assign(style, this.options.style[prop][geojson.properties[prop]]);
+          }
+
+          // apply style modifications
+          if (prop in this._propertyStyles
+            && geojson.properties[prop] in this._propertyStyles[prop]) {
+            Object.assign(style, this._propertyStyles[prop][geojson.properties[prop]]);
+          }
+
+          // put on map based on property
+          if (prop in this._propertyOnMap
+            && geojson.properties[prop] in this._propertyOnMap[prop]) {
+            onMap = this._propertyOnMap[prop][geojson.properties[prop]];
+          }
         }
 
-        // put on map based on property
-        if (prop in this._propertyOnMap
-          && geojson.properties[prop] in this._propertyOnMap[prop]) {
-          onMap = this._propertyOnMap[prop][geojson.properties[prop]];
+        // feature based styles
+        if (id in this._featureStyles) {
+          Object.assign(style, this._featureStyles[id]);
         }
+
+        feature.setStyle(style);
+
+        // feature based on map
+        if (id in this._featureOnMap) {
+          onMap = this._featureOnMap[id];
+        }
+
+        feature.putOnMap(onMap);
       }
-
-      // feature based styles
-      if (id in this._featureStyles) {
-        Object.assign(style, this._featureStyles[id]);
-      }
-
-      feature.setStyle(style);
-
-      // feature based on map
-      if (id in this._featureOnMap) {
-        onMap = this._featureOnMap[id];
-      }
-
-      feature.putOnMap(onMap);
     }
 
     if (!tile.destroy) {
@@ -283,13 +291,14 @@ L.VectorTiles = L.GridLayer.extend({
 
       // add the featureGroup of this tile to the map
       tile.addTo(this._featureGroup);
+
+      // cache the tile
+      this._tileCache.put(tileKey, tile);
     }
 
     // mark tile as loaded
     tile.markAsLoaded();
 
-    // cache the tile
-    this._tileCache.put(tileKey, tile);
 
     // the tile has ~actually~ loaded
     // the `tileload` event doesn't fire when `tileunload` fires first
@@ -507,7 +516,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns {L.Path}
    * @private
    */
-  _geojsonToLayer(feature) {
+  _geojsonToLeafletLayer(feature) {
     let layer;
     let coords;
     let ring;
