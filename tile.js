@@ -23,7 +23,9 @@ export default class Tile {
     this.coords = { x, y, z };
     this._features = {};
 
+    this.timestamp = new Date().getTime(); // tracks when the tile was created
     this.loaded = false;
+    this.destroy = false; // used in tile mark/sweep
 
     this._index = rbush();
     this.featureGroup = L.featureGroup();
