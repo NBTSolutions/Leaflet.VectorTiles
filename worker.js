@@ -3,19 +3,28 @@
  */
 import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
+import geojsonvt from 'geojson-vt';
 
 /**
  * Fetches and processes the vector tile for a given tile coordinate
  */
 module.exports = function(self) {
   self.addEventListener('message', e => {
-    const { url, coords } = e.data;
+    const { url, coords, timestamp } = e.data;
+    const headers = new Headers();
+    if (timestamp) {
+      headers.append('If-Modified-Since', timestamp);
+    }
     fetch(url)
       .then(res => res.blob())
       .then(blob => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const features = getFeatures(new VectorTile(new Pbf(reader.result)), coords);
+          for (let layer in features) {
+            //features[layer] = simplify(fatures[layer], coords);
+            //simplify(features[layer], coords);
+          }
           self.postMessage({ coords, features });
         }
         reader.readAsArrayBuffer(blob);
@@ -39,4 +48,19 @@ function getFeatures(vectorTile, coords) {
     }
   }
   return features;
+}
+
+/**
+ * Build a geojson-vt index for this zoom level and have it do simplification
+ */
+function simplify(features, coords) {
+  const geojson = {
+    type: 'FeatureCollection',
+    features
+  };
+  const tileIndex = geojsonvt(geojson, { indexMaxZoom: coords.z });
+  const tile = tileIndex.getTile(coords.z, coords.x, coords.y).features;
+  console.log(tile);
+  const vt = new VectorTile(tile);
+  console.log(vt);
 }

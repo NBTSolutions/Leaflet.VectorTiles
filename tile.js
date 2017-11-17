@@ -15,15 +15,17 @@ export default class Tile {
    * param {number} x - x coordinate of tile
    * param {number} y - y coordinate of tile
    * param {number} z - z coordinate of tile
+   *
+   * @private
    */
-  constructor(x, y, z) {
+  constructor(x, y, z, debug = false) {
     this.x = x;
     this.y = y;
     this.z = z;
+    this._debug = debug;
     this.coords = { x, y, z };
     this._features = {};
 
-    this.timestamp = new Date().getTime(); // tracks when the tile was created
     this.loaded = false;
     this.destroy = false; // used in tile mark/sweep
 
@@ -42,13 +44,22 @@ export default class Tile {
   }
 
   /**
+   *
+   */
+  updateTimestamp() {
+    this.timestamp = new Date().getTime();
+  }
+
+  /**
    * This method adds all features in this tile to an rbush index
    */
   indexFeatures() {
+    if (this._debug) {
+      console.log('(Tile)', this.coords, 'indexing features');
+    }
     const bboxes = [];
-    for (const layerName in this._features) {
-      for (const id in this._features[layerName]) {
-        const feature = this._features[layerName][id];
+    for (const layer of Object.values(this._features)) {
+      for (const feature of Object.values(layer)) {
         const geom = feature.geojson.geometry;
         const c = geom.coordinates;
 
@@ -89,8 +100,8 @@ export default class Tile {
    * @returns {boolean} true if this tile contains a feature with the given id
    */
   contains(id) {
-    for (let layerName of this._features) {
-      if (id in this._features[layerName]) {
+    for (const layer of Object.values(this._features)) {
+      if (id in layer) {
         return true;
       }
     }
@@ -130,9 +141,9 @@ export default class Tile {
    * @returns {Feature}
    */
   getFeature(id) {
-    for (let layerName of this._features) {
-      if (id in this._features[layerName]) {
-        return this._features[layerName][id];
+    for (const layer of Object.values(this._features)) {
+      if (id in layer) {
+        return layer[id];
       }
     }
     return null;
@@ -180,6 +191,7 @@ export default class Tile {
    */
   markAsLoaded() {
     this.loaded = true;
+    this.updateTimestamp();
     return this;
   }
 
@@ -191,15 +203,9 @@ export default class Tile {
    * @returns {Tile} this
    */
   toggleByProperty(property, value, on, toggled) {
-    let feature;
-    let geoj;
-    for (const layerName in this._features) {
-      for (const id in this._features[layerName]) {
-        if (!this._features[layerName].hasOwnProperty(id)) {
-          continue;
-        }
-        feature = this._features[layerName][id];
-        geoj = feature.geojson;
+    for (const layer of Object.values(this._features)) {
+      for (const feature of Object.values(layer)) {
+        const geoj = feature.geojson;
         if (property in geoj.properties && geoj.properties[property] === value) {
           if (toggled) {
             if (on) {
@@ -223,13 +229,8 @@ export default class Tile {
    * @returns {Tile} this
    */
   restyleByProperty(property, value, style) {
-    let feature;
-    for (const layerName in this._features) {
-      for (const id in this._features[layerName]) {
-        if (!this._features[layerName].hasOwnProperty(id)) {
-          continue;
-        }
-        feature = this._features[layerName][id];
+    for (const layer of Object.values(this._features)) {
+      for (const feature of Object.values(layer)) {
         if (property in feature.geojson.properties
             && feature.geojson.properties[property] === value) {
           feature.leafletLayer.setStyle(style);

@@ -5,6 +5,15 @@
  * @private
  */
 export default class Feature {
+
+  /**
+   * Constructor
+   *
+   * @param {string} id
+   * @param {string} layer
+   * @param {Object} geojson
+   * @param {L.Layer} leafletLayer
+   */
   constructor(id, layer, geojson, leafletLayer) {
     this.id = id;
     this.layer = layer;
@@ -36,4 +45,5 @@ export default class Feature {
     this.onMap = on;
     return this;
   }
+
 }
