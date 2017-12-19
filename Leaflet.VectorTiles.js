@@ -1,8 +1,11 @@
+import work from 'webworkify';
 import Tile from './tile';
 import TileCache from './tile_cache';
 import Feature from './feature';
-import { VectorTile } from '@mapbox/vector-tile';
-import Pbf from 'pbf';
+import worker from './worker';
+
+
+const DEFAULT_TILE_CACHE_SIZE = 25;
 
 
 /**
@@ -18,14 +21,13 @@ function tileIsValid(coords) {
   if (coords.x < 0 || coords.y < 0 || coords.z < 0) {
     return false;
   }
-  const nTiles = Math.pow(4, coords.z);
+  const nTiles = 4 ** coords.z;
   const maxIndex = Math.sqrt(nTiles) - 1;
   if (coords.x > maxIndex || coords.y > maxIndex) {
     return false;
   }
   return true;
 }
-
 
 /**
  * Manages interactive tiles of data
@@ -58,6 +60,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @param {Function} [options.getFeatureId]
    * @param {boolean} [options.debug]
    * @param {Object} [options.style]
+   * @param {number} [options.tileCacheSize]
    */
   initialize(url, options) {
     L.Util.setOptions(options);
@@ -69,7 +72,10 @@ L.VectorTiles = L.GridLayer.extend({
     this._featureGroup = L.featureGroup();
 
     // show tile boundaries and log tile loading and unloading
-    this._debug = options.debug;
+    this._debug = options.debug || false;
+
+    // set the cache size
+    this._tileCacheSize = options.tileCacheSize || DEFAULT_TILE_CACHE_SIZE;
 
     // store Tile objects representing vector tiles
     // keyed on tileKeys
@@ -96,18 +102,16 @@ L.VectorTiles = L.GridLayer.extend({
     // maps feature ids to booleans
     this._featureOnMap = {};
 
-    // mark a tile for destruction in case it is unloaded before it loads
-    this._toDestroy = {};
-
     // tile cache
-    this._tileCache = new TileCache(50, this._debug);
+    this._tileCache = new TileCache(this._tileCacheSize, this._debug);
 
     // mark a tile as loaded
     // this is needed because if a tile is unloaded before its finished loading
     // we need to wait for it to finish loading before we can clean up
     this.on('vt_tileload', (e) => {
       const tileKey = this._tileCoordsToKey(e.coords);
-      if (this._toDestroy[tileKey]) {
+      const tile = this._vectorTiles[tileKey];
+      if (tile.destroy) {
         this.destroyTile(e.coords);
       }
     });
@@ -125,15 +129,23 @@ L.VectorTiles = L.GridLayer.extend({
       // if the tile hasn't loaded yet, mark it for deletion for when it
       // is finished loading
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
+
         // invalidate the tile so that it is deleted when its done loading
         if (this._debug) {
-          console.log('marking tile', e.coords, 'for deletion after loading');
+          console.log('(Main) marking tile', e.coords, 'for deletion after loading');
         }
-        this._toDestroy[tileKey] = true;
+        this._vectorTiles[tileKey].destroy = true;
       } else {
         // destroy it immediately
         this.destroyTile(e.coords);
       }
+    });
+
+    // web worker
+    this.worker = work(worker);
+    this.worker.addEventListener('message', (e) => {
+      const { coords, features } = e.data;
+      this._renderVectorTile(features, coords);
     });
   },
 
@@ -161,11 +173,8 @@ L.VectorTiles = L.GridLayer.extend({
     const maxX = max.lng;
     const maxY = max.lat;
 
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      for (const result of this._vectorTiles[tileKey].search(minX, minY, maxX, maxY)) {
+    for (const tile of Object.values(this._vectorTiles)) {
+      for (const result of tile.search(minX, minY, maxX, maxY)) {
         results.add(result);
       }
     }
@@ -179,179 +188,141 @@ L.VectorTiles = L.GridLayer.extend({
    * uses the tile from the cache
    *
    * @param {Object} coords
+   * @param {number} coords.x
+   * @param {number} coords.y
+   * @param {number} coords.z
    * @param {Function} done
-   * @fires vt_tileload
    * @returns DOM element
+   *
    * @private
    */
-  createTile(coords, done) {
+  createTile(coords) {
     if (this._debug) {
-      console.log("creating tile:", coords);
+      console.log('(Main) creating tile:', coords);
     }
-    const tile = L.DomUtil.create('div', 'leaflet-tile');
-    if (this.options.debug) {
-      // show tile boundaries
-      tile.style.outline = '1px solid red';
-    }
-    this._createTile(coords);
-    done(null, tile);
-    return tile;
-  },
 
-  _createTile(coords) {
     const tileKey = this._tileCoordsToKey(coords);
 
-    // tile has already been unloaded
-    if (this._toDestroy[tileKey]) {
-      return;
-    }
-
+    // check cache for tile
     let tile = this._tileCache.get(tileKey);
-
+    let timestamp = null;
     if (!tile) {
       tile = new Tile(coords.x, coords.y, coords.z);
+    } else {
+      timestamp = tile.timestamp;
     }
 
     this._vectorTiles[tileKey] = tile;
 
-    // fetch vector tile data for this tile
     const url = L.Util.template(this._url, coords);
-    const headers = new Headers();
-    if (tile.timeCreated) {
-      headers.append('If-Modified-Since', tile.timeCreated);
+
+    // assign tile to a worker
+    this.worker.postMessage({ url, coords, timestamp });
+
+    // create an empty div for passing back to GridLayer
+    const div = L.DomUtil.create('div', 'tile-boundary');
+
+    if (self._debug) {
+      div.innerHTML = [coords.x, coords.y, coords.z].join(', ');
+      div.style.outline = '1px solid red';
     }
-    fetch(url, { headers })
-      .then(res => {
-        // use cached tile
-        if (res.status == '304') {
-          // add tile to FeatureGroup to add to map
-          tile.addTo(this._featureGroup);
-          return;
+
+    return div;
+  },
+
+  /**
+   * @param {Array<Object>} features
+   * @param {Object} coords
+   * @param {number} coords.x
+   * @param {number} coords.y
+   * @param {number} coords.z
+   * @fires vt_tileload
+   *
+   * @private
+   */
+  _renderVectorTile(features, coords) {
+    const tileKey = this._tileCoordsToKey(coords);
+    const tile = this._vectorTiles[tileKey];
+
+    for (const [layerName, layer] of Object.entries(features)) {
+      if (tile.destroy) {
+        break;
+      }
+      for (const geojson of layer) {
+        if (tile.destroy) {
+          break;
+        }
+        const id = this.options.getFeatureId(geojson);
+        const leafletLayer = this._geojsonToLeafletLayer(geojson);
+        if (!leafletLayer) {
+          // unsupported geometry type
+          continue;
         }
 
-        // record time that tile was retrieved
-        tile.timeCreated = new Date().getTime();
+        // create the Feature
+        const feature = new Feature(id, layerName, geojson, leafletLayer);
 
-        // parse new vector tile
-        res.blob()
-          .then(blob => {
-            const reader = new FileReader();
-            return new Promise((resolve, reject) => {
-              reader.onloadend = () => {
-                resolve(new VectorTile(new Pbf(reader.result)));
-              }
-              reader.readAsArrayBuffer(blob);
-            });
-          })
-          .then(function parseVectorTile(vtTile) {
-            for (const vtLayerName in vtTile.layers) {
-              // break out if this tile has already be unloaded
-              if (this._toDestroy[tileKey]) {
-                if (this._debug) {
-                  console.log('Tile', coords, 'stopped while loading');
-                }
-                break;
-              }
+        // add it to the tile
+        tile.addFeature(feature);
 
-              const vtLayer = vtTile.layers[vtLayerName];
+        // calculate its style and if its visible
+        const style = {};
+        let onMap = true;
 
-              for (let j = 0; j < vtLayer.length; j++) {
-                // break out if this tile has already be unloaded
-                if (this._toDestroy[tileKey]) {
-                  if (this._debug) {
-                    console.log('Tile', coords, 'stopped while loading');
-                  }
-                  break;
-                }
+        // property based styles
+        // TODO: for nested properties this will be comparing objects. Look into this.
+        for (const [prop, val] of Object.entries(geojson.properties)) {
+          // apply style from options
+          if (prop in this.options.style && val in this.options.style[prop]) {
+            Object.assign(style, this.options.style[prop][val]);
+          }
 
-                const vtFeature = vtLayer.feature(j);
+          // apply style modifications
+          if (prop in this._propertyStyles && val in this._propertyStyles[prop]) {
+            Object.assign(style, this._propertyStyles[prop][val]);
+          }
 
-                const geojson = vtFeature.toGeoJSON(coords.x, coords.y, coords.z);
-                const id = this.options.getFeatureId(geojson);
-                const layer = this._geojsonToLayer(geojson);
-                if (!layer) {
-                  // unsupported geometry type
-                  continue;
-                }
+          // put on map based on property
+          if (prop in this._propertyOnMap && val in this._propertyOnMap[prop]) {
+            onMap = this._propertyOnMap[prop][val];
+          }
+        }
 
-                // create the Feature
-                const feature = new Feature(id, geojson, layer);
+        // apply styles custom to this specific feature
+        if (id in this._featureStyles) {
+          Object.assign(style, this._featureStyles[id]);
+        }
 
-                // add it to the tile
-                tile.addFeature(feature);
+        feature.setStyle(style);
 
-                // calculate its style and if its visible
-                const style = {};
-                let onMap = true;
-                let prop;
+        // feature based on map
+        if (id in this._featureOnMap) {
+          onMap = this._featureOnMap[id];
+        }
 
-                // property based styles
-                for (prop in geojson.properties) {
-                  // apply style from options
-                  if (prop in this.options.style
-                      && geojson.properties[prop] in this.options.style[prop]) {
-                    Object.assign(style, this.options.style[prop][geojson.properties[prop]]);
-                  }
+        feature.putOnMap(onMap);
+      }
+    }
 
-                  // apply style modifications
-                  if (prop in this._propertyStyles
-                      && geojson.properties[prop] in this._propertyStyles[prop]) {
-                    Object.assign(style, this._propertyStyles[prop][geojson.properties[prop]]);
-                  }
+    if (!tile.destroy) {
+      // called when all features have been added to the tile
+      tile.init();
 
-                  // put on map based on property
-                  if (prop in this._propertyOnMap
-                      && geojson.properties[prop] in this._propertyOnMap[prop]) {
-                    onMap = this._propertyOnMap[prop][geojson.properties[prop]];
-                  }
-                }
+      // add the featureGroup of this tile to the map
+      tile.addTo(this._featureGroup);
 
-                // feature based styles
-                if (id in this._featureStyles) {
-                  Object.assign(style, this._featureStyles[id]);
-                }
+      // cache the tile
+      this._tileCache.put(tileKey, tile);
+    }
 
-                feature.setStyle(style);
+    // mark tile as loaded
+    tile.markAsLoaded();
 
-                // feature based on map
-                if (id in this._featureOnMap) {
-                  onMap = this._featureOnMap[id];
-                }
 
-                feature.putOnMap(onMap);
-              }
-            }
-
-            if (!this._toDestroy[tileKey]) {
-              // called when all features have been added to the tile
-              tile.init();
-
-              // add the featureGroup of this tile to the map
-              tile.addTo(this._featureGroup);
-            }
-
-            // mark tile as loaded
-            tile.markAsLoaded();
-
-            // cache the tile
-            this._tileCache.put(tileKey, tile);
-
-            if (this._debug) {
-              console.log('tile loaded:', coords, tile.featureGroup.getLayers().length, ' features');
-            }
-
-            // the tile has ~actually~ loaded
-            // the `tileload` event doesn't fire when `tileunload` fires first
-            // but in our case we still need to be finished loading to clean up
-            this.fire('vt_tileload', { coords });
-          }.bind(this))
-          .catch(err => {
-            console.log(err);
-          });
-      })
-      .catch(err => {
-        console.log(err);
-      });
+    // the tile has ~actually~ loaded
+    // the `tileload` event doesn't fire when `tileunload` fires first
+    // but in our case we still need to be finished loading to clean up
+    this.fire('vt_tileload', { coords });
   },
 
   /**
@@ -363,7 +334,7 @@ L.VectorTiles = L.GridLayer.extend({
    */
   destroyTile(coords) {
     if (this._debug) {
-      console.log("destroying tile:", coords);
+      console.log('(Main) destroying tile:', coords);
     }
     const tileKey = this._tileCoordsToKey(coords);
     const tile = this._vectorTiles[tileKey];
@@ -371,13 +342,8 @@ L.VectorTiles = L.GridLayer.extend({
     // remove this tile's FeatureGroup from the map
     tile.removeFrom(this._featureGroup);
 
-    // delete the tile's data
+    // delete the tile
     delete this._vectorTiles[tileKey];
-
-    // remove delete marker
-    if (this._toDestroy[tileKey]) {
-      delete this._toDestroy[tileKey];
-    }
   },
 
   /**
@@ -413,6 +379,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @param {string} property
    * @param {string} value
    * @param {boolean} on
+   *
    * @private
    */
   _toggleByProperty(property, value, on) {
@@ -425,12 +392,7 @@ L.VectorTiles = L.GridLayer.extend({
 
     this._propertyOnMap[property][value] = on;
 
-    let tile;
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      tile = this._vectorTiles[tileKey];
+    for (const tile of Object.values(this._vectorTiles)) {
       tile.toggleByProperty(property, value, on, toggled);
     }
   },
@@ -454,12 +416,7 @@ L.VectorTiles = L.GridLayer.extend({
 
     Object.assign(this._propertyStyles[property][value], style);
 
-    let tile;
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      tile = this._vectorTiles[tileKey];
+    for (const tile of Object.values(this._vectorTiles)) {
       tile.restyleByProperty(property, value, style);
     }
 
@@ -475,11 +432,7 @@ L.VectorTiles = L.GridLayer.extend({
    */
   setFeatureStyle(id, style) {
     this._featureStyles[id] = style;
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      const tile = this._vectorTiles[tileKey];
+    for (const tile of Object.values(this._vectorTiles)) {
       if (tile.contains(id)) {
         const feature = tile.getFeature(id);
         feature.setStyle(style);
@@ -495,12 +448,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns {L.Path}
    */
   getLayer(id) {
-    let tile;
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      tile = this._vectorTiles[tileKey];
+    for (const tile of Object.values(this._vectorTiles)) {
       if (tile.contains(id)) {
         return tile.getFeature(id).layer;
       }
@@ -515,12 +463,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @return {Object}
    */
   getGeoJSON(id) {
-    let tile;
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      tile = this._vectorTiles[tileKey];
+    for (const tile of Object.values(this._vectorTiles)) {
       if (tile.contains(id)) {
         return tile.getFeature(id).geojson;
       }
@@ -536,12 +479,7 @@ L.VectorTiles = L.GridLayer.extend({
    * @returns {L.VectorTiles} this
    */
   removeFeature(id) {
-    let tile;
-    for (const tileKey in this._vectorTiles) {
-      if (!this._vectorTiles.hasOwnProperty(tileKey)) {
-        continue;
-      }
-      tile = this._vectorTiles[tileKey];
+    for (const tile of Object.values(this._vectorTiles)) {
       tile.removeFeature(id);
     }
     return this;
@@ -554,8 +492,16 @@ L.VectorTiles = L.GridLayer.extend({
    * returns {L.VectorTiles} this
    */
   setTileCacheSize(size) {
-    this._tileCache.setSize(size);
+    this._tileCacheSize = size;
+    this._tileCache.setSize(this._tileCacheSize);
     return this;
+  },
+
+  /**
+   * @returns {number} current maximum size of the cache
+   */
+  getTileCacheSize() {
+    return this._tileCacheSize;
   },
 
   /**
@@ -567,9 +513,10 @@ L.VectorTiles = L.GridLayer.extend({
    *
    * @param {Object} feature
    * @returns {L.Path}
+   *
    * @private
    */
-  _geojsonToLayer(feature) {
+  _geojsonToLeafletLayer(feature) {
     let layer;
     let coords;
     let ring;
@@ -583,8 +530,8 @@ L.VectorTiles = L.GridLayer.extend({
 
       case 'LineString':
         coords = [];
-        for (let i = 0; i < c.length; i++) {
-          coords.push([c[i][1], c[i][0]]);
+        for (const p of c) {
+          coords.push([p[1], p[0]]);
         }
         layer = L.polyline(coords, {});
         break;
@@ -618,7 +565,7 @@ L.VectorTiles = L.GridLayer.extend({
         break;
 
       default:
-        console.log(`Unsupported feature type: ${feature.geometry.type}`);
+        console.log(`(Main) Unsupported feature type: ${feature.geometry.type}`);
         return null;
     }
 

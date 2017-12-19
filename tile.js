@@ -15,15 +15,19 @@ export default class Tile {
    * param {number} x - x coordinate of tile
    * param {number} y - y coordinate of tile
    * param {number} z - z coordinate of tile
+   *
+   * @private
    */
-  constructor(x, y, z) {
+  constructor(x, y, z, debug = false) {
     this.x = x;
     this.y = y;
     this.z = z;
+    this._debug = debug;
     this.coords = { x, y, z };
     this._features = {};
 
     this.loaded = false;
+    this.destroy = false; // used in tile mark/sweep
 
     this._index = rbush();
     this.featureGroup = L.featureGroup();
@@ -40,43 +44,51 @@ export default class Tile {
   }
 
   /**
+   *
+   */
+  updateTimestamp() {
+    this.timestamp = new Date().getTime();
+  }
+
+  /**
    * This method adds all features in this tile to an rbush index
    */
   indexFeatures() {
+    if (this._debug) {
+      console.log('(Tile)', this.coords, 'indexing features');
+    }
     const bboxes = [];
-    for (const id in this._features) {
-      if (!this._features.hasOwnProperty(id)) {
-        continue;
+    for (const layer of Object.values(this._features)) {
+      for (const feature of Object.values(layer)) {
+        const geom = feature.geojson.geometry;
+        const c = geom.coordinates;
+
+        let minX;
+        let minY;
+        let maxX;
+        let maxY;
+
+        if (geom.type === 'Point') {
+          minX = c[0];
+          maxX = c[0];
+          minY = c[1];
+          maxY = c[1];
+        } else {
+          [minX, minY, maxX, maxY] = bbox(geom);
+        }
+
+        const item = {
+          minX,
+          minY,
+          maxX,
+          maxY,
+          id: feature.id
+        };
+
+        feature.indexEntry = item;
+
+        bboxes.push(item);
       }
-      const feature = this._features[id];
-      const geom = feature.geojson.geometry;
-      const c = geom.coordinates;
-
-      let minX;
-      let minY;
-      let maxX;
-      let maxY;
-
-      if (geom.type === 'Point') {
-        minX = c[0];
-        maxX = c[0];
-        minY = c[1];
-        maxY = c[1];
-      } else {
-        [minX, minY, maxX, maxY] = bbox(geom);
-      }
-
-      const item = {
-        minX,
-        minY,
-        maxX,
-        maxY,
-        id: feature.id
-      };
-
-      feature.indexEntry = item;
-
-      bboxes.push(item);
     }
 
     // bulk insert into spatial index
@@ -88,7 +100,12 @@ export default class Tile {
    * @returns {boolean} true if this tile contains a feature with the given id
    */
   contains(id) {
-    return id in this._features;
+    for (const layer of Object.values(this._features)) {
+      if (id in layer) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -96,8 +113,11 @@ export default class Tile {
    * @returns {Tile} this
    */
   addFeature(feature) {
-    this._features[feature.id] = feature;
-    this.featureGroup.addLayer(feature.layer);
+    if (!(feature.layer in this._features)) {
+      this._features[feature.layer] = {};
+    }
+    this._features[feature.layer][feature.id] = feature;
+    this.featureGroup.addLayer(feature.leafletLayer);
     return this;
   }
 
@@ -110,9 +130,9 @@ export default class Tile {
       return this;
     }
     const feature = this.getFeature(id);
-    this.featureGroup.removeLayer(feature.layer);
+    this.featureGroup.removeLayer(feature.leafletLayer);
     this._index.remove(feature.indexEntry);
-    delete this._features[id];
+    delete this._features[feature.layer][id];
     return this;
   }
 
@@ -121,7 +141,12 @@ export default class Tile {
    * @returns {Feature}
    */
   getFeature(id) {
-    return this._features[id];
+    for (const layer of Object.values(this._features)) {
+      if (id in layer) {
+        return layer[id];
+      }
+    }
+    return null;
   }
 
   /**
@@ -166,6 +191,7 @@ export default class Tile {
    */
   markAsLoaded() {
     this.loaded = true;
+    this.updateTimestamp();
     return this;
   }
 
@@ -177,22 +203,18 @@ export default class Tile {
    * @returns {Tile} this
    */
   toggleByProperty(property, value, on, toggled) {
-    let feature;
-    let geoj;
-    for (const id in this._features) {
-      if (!this._features.hasOwnProperty(id)) {
-        continue;
-      }
-      feature = this.getFeature(id);
-      geoj = feature.geojson;
-      if (property in geoj.properties && geoj.properties[property] === value) {
-        if (toggled) {
-          if (on) {
-            this._index.insert(feature.indexEntry);
-            this.featureGroup.addLayer(feature.layer);
-          } else {
-            this._index.remove(feature.indexEntry);
-            this.featureGroup.removeLayer(feature.layer);
+    for (const layer of Object.values(this._features)) {
+      for (const feature of Object.values(layer)) {
+        const geoj = feature.geojson;
+        if (property in geoj.properties && geoj.properties[property] === value) {
+          if (toggled) {
+            if (on) {
+              this._index.insert(feature.indexEntry);
+              this.featureGroup.addLayer(feature.leafletLayer);
+            } else {
+              this._index.remove(feature.indexEntry);
+              this.featureGroup.removeLayer(feature.leafletLayer);
+            }
           }
         }
       }
@@ -207,15 +229,12 @@ export default class Tile {
    * @returns {Tile} this
    */
   restyleByProperty(property, value, style) {
-    let feature;
-    for (const id in this._features) {
-      if (!this._features.hasOwnProperty(id)) {
-        continue;
-      }
-      feature = this.getFeature(id);
-      if (property in feature.geojson.properties
-          && feature.geojson.properties[property] === value) {
-        feature.layer.setStyle(style);
+    for (const layer of Object.values(this._features)) {
+      for (const feature of Object.values(layer)) {
+        if (property in feature.geojson.properties
+            && feature.geojson.properties[property] === value) {
+          feature.leafletLayer.setStyle(style);
+        }
       }
     }
     return this;

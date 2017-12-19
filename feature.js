@@ -5,10 +5,20 @@
  * @private
  */
 export default class Feature {
-  constructor(id, geojson, layer) {
+
+  /**
+   * Constructor
+   *
+   * @param {string} id
+   * @param {string} layer
+   * @param {Object} geojson
+   * @param {L.Layer} leafletLayer
+   */
+  constructor(id, layer, geojson, leafletLayer) {
     this.id = id;
-    this.geojson = geojson;
     this.layer = layer;
+    this.geojson = geojson;
+    this.leafletLayer = leafletLayer;
     this.onMap = true;
     this.style = {};
 
@@ -23,7 +33,7 @@ export default class Feature {
    */
   setStyle(style) {
     Object.assign(this.style, style);
-    this.layer.setStyle(this.style);
+    this.leafletLayer.setStyle(this.style);
     return this;
   }
 
@@ -35,4 +45,5 @@ export default class Feature {
     this.onMap = on;
     return this;
   }
+
 }

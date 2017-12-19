@@ -40,11 +40,12 @@ export default class TileCache {
     this._debug = debug;
     this._cache = {}; // a hashtable for holding cached items
     this._head = null; // the head of a doubly linked list that maintains the order of items by age
-    this._tail = null // tail pointer to the order linked list
+    this._tail = null; // tail pointer to the order linked list
   }
 
   /**
    * Retrieve an item from the cache
+   * Also places that item at the head of the list
    *
    * @param {string} tileKey
    * @returns {Tile|null}
@@ -52,13 +53,13 @@ export default class TileCache {
   get(tileKey) {
     if (!(tileKey in this._cache)) {
       if (this._debug) {
-        console.log('tile cache:', 'miss', tileKey);
+        console.log('(TileCache)', 'miss', tileKey);
       }
       return null;
     }
 
     if (this._debug) {
-      console.log('tile cache', 'hit', tileKey);
+      console.log('(TileCache)', 'hit', tileKey);
     }
 
     // move node to front of linked list
@@ -75,13 +76,15 @@ export default class TileCache {
   }
 
   /**
+   * Place an item into the cache
+   *
    * @param {string} tileKey
    * @param {Tile} tile
+   * @returns {TileCache} this
    */
   put(tileKey, tile) {
     if (this._debug) {
-      console.log('tile cache:', 'caching', tileKey);
-      console.log(this._stringifyList());
+      console.log('(TileCache)', 'caching', tileKey);
     }
 
     if (tileKey in this._cache) {
@@ -97,18 +100,22 @@ export default class TileCache {
     }
 
     // place at heaad of order linked list
-    let node = new Node({ tileKey });
+    const node = new Node({ tileKey });
     if (this._head) {
       this._head.prev = node;
     }
     node.next = this._head;
     this._head = node;
 
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (!this._tail) {
+      this._tail = this._head;
+    }
+
     this._cache[tileKey] = { tileKey, tile, node };
 
-    if (Object.keys(this._cache) > this._size) {
+    if (Object.keys(this._cache).length > this._size) {
       // we need to evict an item
-
       // remove from linked list
       const tailNode = this._tail;
       this._tail = tailNode.prev;
@@ -117,11 +124,11 @@ export default class TileCache {
       // remove from cache table
       const tailtileKey = tailNode.data.tileKey;
       if (this._debug) {
-        console.log('tile cache:', 'evicting', tileKey);
-        console.log(this._stringifyList());
+        console.log('(TileCache)', 'evicting', tileKey);
       }
       delete this._cache[tailtileKey];
     }
+    return this;
   }
 
   /**
@@ -129,11 +136,11 @@ export default class TileCache {
    */
   setSize(size) {
     if (size < 0) {
-      throw "Size cannot be a negative number";
+      throw new Error('Cache size cannot be a negative number');
     }
 
     if (this._debug) {
-      console.log('tile cache:', 'changing cache size from', this._size, 'to', size);
+      console.log('(TileCache):', 'changing cache size from', this._size, 'to', size);
     }
 
     if (size >= this._size) {
@@ -163,9 +170,9 @@ export default class TileCache {
 
     // collect the garbage
     while (garbage != null) {
-      let { tileKey } = garbage.data;
+      const { tileKey } = garbage.data;
       if (this._debug) {
-        console.log('tile cache:', 'removing tile', tileKey, 'due to cache resize');
+        console.log('(TileCache)', 'removing tile', tileKey, 'due to cache resize');
         console.log(this._stringifyList());
       }
       delete this._cache[tileKey]; // delete from cache
@@ -186,7 +193,7 @@ export default class TileCache {
     let node = this._head;
     let out = '';
     while (node !== null) {
-      out += `(coords = ${node.data.tileKey}, feature count = ${Object.keys(this._cache[node.data.tileKey].tile._features).length}) -> `;
+      out += `(coords = ${node.data.tileKey}, feature count = ${Object.keys(this._cache[node.data.tileKey].tile._features).length}) -> \n`;
       node = node.next;
     }
     return out;

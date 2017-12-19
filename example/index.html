@@ -3,28 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <title>Leaflet.VectorTiles Test Page</title>
+  <script src="https://unpkg.com/vue"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.2.0/leaflet-src.js"></script>
   <script src="http://localhost:9966/dist/leaflet.vector-tiles.js"></script>
   <style>
     html, body, input { font-family: Helvetica; }
     #map { height: 600px; }
+    .mb4 { margin-bottom: 40px; }
+    td, th {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+    table { border-collapse: collapse; }
   </style>
 </head>
 <body>
-  <div>
-    <input id="hover-radio" type="radio"/> hover highlight
+  <div id="app">
+    <div><input id="hover-radio" type="radio"/> hover highlight</div>
+    <div>search: <input id="search" type="text"/></div>
+    <div>set cache size: <input type="range" min="0" max="150" value="50" v-model="cacheSize" @change="setTileCacheSize"/></div>
+    <div>cache size: {{ cacheSize }}</div>
+    <div>zoom: {{ zoom }}</div>
+    <div id="map" class="mb4"></div>
+    <table class="table">
+      <thead>
+        <tr>
+          <td>coords</td>
+          <td>timestamp</td>
+          <td>feature count</td>
+          <td>loaded</td>
+        </tr>
+      </thead>
+      <tbody v-for="tile in tiles">
+        <tr>
+          <td>({{ tile.coords.x }}, {{ tile.coords.y }}, {{ tile.coords.z }})</td>
+          <td>{{ tile.timestamp }}</td>
+          <td>{{ tile.featureCount }}</td>
+          <td v-if="tile.loaded">yes</td>
+          <td v-else>no</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
-  <div>
-    search: <input id="search" type="text"/>
-  </div>
-  <div>
-    <div>
-      set cache size: <input id="cache-size-input" type="range" min="0" max="150" value="50"/>
-    </div>
-    <div>cache size: <span id="cache-size">50</span></div>
-  </div>
-  <div id="map"></div>
   <script src="index.js"></script>
 </body>
 </html>

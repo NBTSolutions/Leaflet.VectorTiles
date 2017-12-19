@@ -4,20 +4,15 @@
 const fs = require('fs');
 const cors = require('cors');
 const rbush = require('rbush');
-const bbox = require('@turf/bbox');
 const vtpbf = require('vt-pbf');
 const express = require('express');
 const geojsonvt = require('geojson-vt');
-const SphericalMercator = require('sphericalmercator');
-const featureCollection = require('@turf/helpers').featureCollection;
 
 const app = express();
 app.use(express.static('.'))
 app.use(cors());
 
 const PORT = 12345;
-
-const mercator = new SphericalMercator({ size: 256 });
 
 // load features from file
 const countryGeoj = JSON.parse(fs.readFileSync('countries.geojson'));
@@ -40,17 +35,17 @@ const pointTileIndex = geojsonvt(pointGeoj, {
   debug: 2,
 });
 
-// returned when empty tiles are requested
-const emptyFeatCollection = featureCollection([]);
-
 app.get('/:z/:x/:y', (req, res) => {
   if (req.get('If-Modified-Since')) {
     return res.status(304).send();
   }
   const [x, y, z] = [+req.params.x, +req.params.y, +req.params.z];
-  const countries = countryTileIndex.getTile(z, x, y) || emptyFeatCollection;
-  const points = pointTileIndex.getTile(z, x, y) || emptyFeatCollection;
-  const buff = vtpbf.fromGeojsonVt({ countries, points });
+  const countries = countryTileIndex.getTile(z, x, y);
+  //const points = pointTileIndex.getTile(z, x, y);
+  const d = {};
+  if (countries) d.countries = countries;
+  //if (points) d.points = points;
+  const buff = vtpbf.fromGeojsonVt(d);
   res.status(200).send(buff);
 });
 
