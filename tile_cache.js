@@ -85,7 +85,6 @@ export default class TileCache {
   put(tileKey, tile) {
     if (this._debug) {
       console.log('(TileCache)', 'caching', tileKey);
-      console.log(this._stringifyList()); // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }
 
     if (tileKey in this._cache) {
@@ -126,7 +125,6 @@ export default class TileCache {
       const tailtileKey = tailNode.data.tileKey;
       if (this._debug) {
         console.log('(TileCache)', 'evicting', tileKey);
-        console.log(this._stringifyList()); // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       }
       delete this._cache[tailtileKey];
     }

@@ -41,8 +41,6 @@
     "geojson-vt": "^2.4.0",
     "pbf": "^3.0.5",
     "rbush": "^2.0.1",
-    "vt-geojson": "^2.1.1",
-    "vt-pbf": "^3.1.0",
     "webworkify": "^1.5.0"
   }
 }
