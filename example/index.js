@@ -40,7 +40,7 @@ function main(geojson) {
   const vtLayer = window.vtLayer = new L.VectorTiles(url, {
     getFeatureId: f => f.properties.name.toLowerCase(),
     style: {},
-    //debug: true,
+    debug: true,
     tileCacheSize: 5,
   }).addTo(map);
 

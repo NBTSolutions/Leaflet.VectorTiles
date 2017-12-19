@@ -4,11 +4,9 @@
 const fs = require('fs');
 const cors = require('cors');
 const rbush = require('rbush');
-const bbox = require('@turf/bbox');
 const vtpbf = require('vt-pbf');
 const express = require('express');
 const geojsonvt = require('geojson-vt');
-const featureCollection = require('@turf/helpers').featureCollection;
 
 const app = express();
 app.use(express.static('.'))

@@ -11,6 +11,12 @@
     html, body, input { font-family: Helvetica; }
     #map { height: 600px; }
     .mb4 { margin-bottom: 40px; }
+    td, th {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+    table { border-collapse: collapse; }
   </style>
 </head>
 <body>
@@ -21,15 +27,25 @@
     <div>cache size: {{ cacheSize }}</div>
     <div>zoom: {{ zoom }}</div>
     <div id="map" class="mb4"></div>
-    <div v-for="tile in tiles">
-      <div class="mb4">
-        <div>({{ tile.coords.x }}, {{ tile.coords.y }}, {{ tile.coords.z }})</div>
-        <div>timestamp {{ tile.timestamp }}</div>
-        <div>feature count: {{ tile.featureCount }}</div>
-        <div v-if="tile.loaded">loaded</div>
-        <div v-else>loading</div>
-      </div>
-    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <td>coords</td>
+          <td>timestamp</td>
+          <td>feature count</td>
+          <td>loaded</td>
+        </tr>
+      </thead>
+      <tbody v-for="tile in tiles">
+        <tr>
+          <td>({{ tile.coords.x }}, {{ tile.coords.y }}, {{ tile.coords.z }})</td>
+          <td>{{ tile.timestamp }}</td>
+          <td>{{ tile.featureCount }}</td>
+          <td v-if="tile.loaded">yes</td>
+          <td v-else>no</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
   <script src="index.js"></script>
 </body>
