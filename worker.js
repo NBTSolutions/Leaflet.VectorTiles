@@ -4,6 +4,7 @@
 import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
 import geojsonvt from 'geojson-vt';
+import vtpbf from 'vt-pbf';
 
 /**
  * Fetches and processes the vector tile for a given tile coordinate
@@ -16,19 +17,23 @@ module.exports = function(self) {
       headers.append('If-Modified-Since', timestamp);
     }
     fetch(url)
-      .then(res => res.blob())
-      .then(blob => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const features = getFeatures(new VectorTile(new Pbf(reader.result)), coords);
-          for (let layer in features) {
-            //features[layer] = simplify(fatures[layer], coords);
-            //simplify(features[layer], coords);
-          }
-          self.postMessage({ coords, features });
+      .then(res => {
+        if (res.status === 404) {
+          return self.postMessage({ coords, features: [] });
         }
-        reader.readAsArrayBuffer(blob);
-      });
+        res.blob()
+          .then(blob => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const features = getFeatures(new VectorTile(new Pbf(reader.result)), coords);
+              self.postMessage({ coords, features });
+            };
+            reader.readAsArrayBuffer(blob);
+          });
+      })
+    .catch(e => {
+      console.log(e);
+    });
   });
 };
 
@@ -48,19 +53,4 @@ function getFeatures(vectorTile, coords) {
     }
   }
   return features;
-}
-
-/**
- * Build a geojson-vt index for this zoom level and have it do simplification
- */
-function simplify(features, coords) {
-  const geojson = {
-    type: 'FeatureCollection',
-    features
-  };
-  const tileIndex = geojsonvt(geojson, { indexMaxZoom: coords.z });
-  const tile = tileIndex.getTile(coords.z, coords.x, coords.y).features;
-  console.log(tile);
-  const vt = new VectorTile(tile);
-  console.log(vt);
 }

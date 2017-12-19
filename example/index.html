@@ -3,28 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <title>Leaflet.VectorTiles Test Page</title>
+  <script src="https://unpkg.com/vue"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.2.0/leaflet-src.js"></script>
   <script src="http://localhost:9966/dist/leaflet.vector-tiles.js"></script>
   <style>
     html, body, input { font-family: Helvetica; }
     #map { height: 600px; }
+    .mb4 { margin-bottom: 40px; }
   </style>
 </head>
 <body>
-  <div>
-    <input id="hover-radio" type="radio"/> hover highlight
-  </div>
-  <div>
-    search: <input id="search" type="text"/>
-  </div>
-  <div>
-    <div>
-      set cache size: <input id="cache-size-input" type="range" min="0" max="150" value="50"/>
+  <div id="app">
+    <div><input id="hover-radio" type="radio"/> hover highlight</div>
+    <div>search: <input id="search" type="text"/></div>
+    <div>set cache size: <input type="range" min="0" max="150" value="50" v-model="cacheSize" @change="setTileCacheSize"/></div>
+    <div>cache size: {{ cacheSize }}</div>
+    <div>zoom: {{ zoom }}</div>
+    <div id="map" class="mb4"></div>
+    <div v-for="tile in tiles">
+      <div class="mb4">
+        <div>({{ tile.coords.x }}, {{ tile.coords.y }}, {{ tile.coords.z }})</div>
+        <div>timestamp {{ tile.timestamp }}</div>
+        <div>feature count: {{ tile.featureCount }}</div>
+        <div v-if="tile.loaded">loaded</div>
+        <div v-else>loading</div>
+      </div>
     </div>
-    <div>cache size: <span id="cache-size">50</span></div>
   </div>
-  <div id="map"></div>
   <script src="index.js"></script>
 </body>
 </html>

@@ -29,7 +29,6 @@ function tileIsValid(coords) {
   return true;
 }
 
-
 /**
  * Manages interactive tiles of data
  *
@@ -130,6 +129,7 @@ L.VectorTiles = L.GridLayer.extend({
       // if the tile hasn't loaded yet, mark it for deletion for when it
       // is finished loading
       if (!(tileKey in this._vectorTiles) || !this._vectorTiles[tileKey].loaded) {
+
         // invalidate the tile so that it is deleted when its done loading
         if (this._debug) {
           console.log('(Main) marking tile', e.coords, 'for deletion after loading');
@@ -220,7 +220,13 @@ L.VectorTiles = L.GridLayer.extend({
     this.worker.postMessage({ url, coords, timestamp });
 
     // create an empty div for passing back to GridLayer
-    const div = L.DomUtil.create('div');
+    const div = L.DomUtil.create('div', 'tile-boundary');
+
+    if (self._debug) {
+      div.innerHTML = [coords.x, coords.y, coords.z].join(', ');
+      div.style.outline = '1px solid red';
+    }
+
     return div;
   },
 

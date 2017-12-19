@@ -195,7 +195,7 @@ export default class TileCache {
     let node = this._head;
     let out = '';
     while (node !== null) {
-      out += `(coords = ${node.data.tileKey}, feature count = ${Object.keys(this._cache[node.data.tileKey].tile._features).length}) -> `;
+      out += `(coords = ${node.data.tileKey}, feature count = ${Object.keys(this._cache[node.data.tileKey].tile._features).length}) -> \n`;
       node = node.next;
     }
     return out;
